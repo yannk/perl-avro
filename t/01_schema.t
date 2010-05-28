@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 10;
+plan tests => 16;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -20,6 +20,23 @@ my $s2 = Avro::Schema->parse(q({"type": "string"}));
 isa_ok $s2, 'Avro::Schema::Primitive';
 is $s2->type, "string", "type is string";
 is $s, $s2, "string Schematas are singletons";
+
+my $s3 = Avro::Schema::Record->new(
+    struct => {
+        name => 'saucisson',
+        fields => [
+            { name => 'a', type => 'long'   },
+            { name => 'b', type => 'string' },
+        ],
+    },
+);
+
+isa_ok $s3, 'Avro::Schema::Record';
+is $s3->fullname, 'saucisson', "correct name";
+is $s3->fields->[0]{name}, 'a', 'a';
+is $s3->fields->[0]{type}, Avro::Schema::Primitive->new(type => 'long'), 'long';
+is $s3->fields->[1]{name}, 'b', 'b';
+is $s3->fields->[1]{type}, Avro::Schema::Primitive->new(type => 'string'), 'str';
 
 done_testing;
 

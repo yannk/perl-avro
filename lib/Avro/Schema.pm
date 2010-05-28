@@ -20,6 +20,13 @@ sub parse {
             "Cannot parse json string: $_"
         );
     };
+    return $schema->parse_struct($struct, $names);
+}
+
+sub parse_struct {
+    my $schema = shift;
+    my $struct = shift;
+    my $names = shift || {};
 
     ## A JSON object
     if (ref $struct eq 'HASH') {
@@ -43,15 +50,6 @@ sub parse {
             return Avro::Schema::Primitive->new(type => $type);
         }
     }
-}
-
-sub _validate_type {
-    my $type = shift;
-    my $names = shift || {};
-    return if exists $names->{$type}
-                  or Avro::Schema::Primitive->is_valid($type);
-
-    throw Avro::Schema::Error::ParseError( "Invalid type: $type");
 }
 
 package Avro::Schema::Base;
@@ -116,9 +114,88 @@ sub is_valid {
 
 package Avro::Schema::Named;
 our @ISA = qw/Avro::Schema::Base/;
+use Scalar::Util;
+
+sub new {
+    my $class = shift;
+    my %param = @_;
+    my $schema = bless {}, $class;
+
+    my $names  = $param{names} || {};
+    my $struct = $param{struct} || {};
+    my $name   = $schema->{fullname} = $struct->{name}
+        or throw Avro::Schema::Error::ParseError( "Missing name for $class" );
+
+    $class->add_name($names, $schema);
+    return $schema;
+}
+
+sub add_name {
+    my $class = shift;
+    my ($names, $schema) = @_;
+
+    my $name = $schema->fullname;
+    if ( exists $names->{ $name } ) {
+        throw Avro::Schema::Error::ParseError( "Name $name is already defined" );
+    }
+    $names->{$name} = $schema;
+    Scalar::Util::weaken( $names->{$name} );
+    return;
+}
+
+sub fullname {
+    my $schema = shift;
+    return $schema->{fullname};
+}
+
+sub name {
+}
+
+sub namespace {
+}
 
 package Avro::Schema::Record;
 our @ISA = qw/Avro::Schema::Named/;
+use Scalar::Util;
+
+sub new {
+    my $class = shift;
+    my %param = @_;
+
+    my $names  = $param{names} || {};
+
+    my $schema = $class->SUPER::new(%param);
+    my $fields = $param{struct}{fields}
+        or throw Arvo::Schema::Error::ParseError("Record must have Fields");
+
+    throw Arvo::Schema::Error::ParseError("Record.Fields must me an array")
+        unless ref $fields eq 'ARRAY';
+
+    my @fields;
+    for my $field (@$fields) {
+        my $name = $field->{name};
+        throw Arvo::Schema::Error::ParseError("Record.Field.name is required")
+            unless defined $name && length $name;
+
+        my $type = $field->{type};
+        throw Arvo::Schema::Error::ParseError("Record.Field.name is required")
+            unless defined $type && length $type;
+
+        $type = Avro::Schema->parse_struct($type, $names);
+        my $field = { name => $name, type => $type };
+        ## TODO: default
+        Scalar::Util::weaken($field->{type});
+
+        push @fields, $field;
+    }
+    $schema->{fields} = \@fields;
+    return $schema;
+}
+
+sub fields {
+    my $schema = shift;
+    return $schema->{fields};
+}
 
 package Avro::Schema::Enum;
 our @ISA = qw/Avro::Schema::Named/;
@@ -132,12 +209,11 @@ our @ISA = qw/Avro::Schema::Base/;
 package Avro::Schema::Union;
 our @ISA = qw/Avro::Schema::Base/;
 
-sub parse {
+sub parse_struct {
     my $schema = shift;
     my $types = shift;
     my $names = shift || {};
     for my $type (@$types) {
-        Avro::Schema::_validate_type($type, $names);
     }
 }
 
