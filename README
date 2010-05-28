@@ -1,0 +1,20 @@
+NAME
+    Avro -
+
+SYNOPSIS
+      use Avro;
+
+DESCRIPTION
+    Avro is
+
+AUTHOR
+    Yann Kerherve <yannk@cpank.org>
+
+COPYRIGHT
+    Copyright 2010- Yann Kerherve
+
+LICENSE
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+SEE ALSO
