@@ -162,9 +162,9 @@ sub new {
     my $class = shift;
     my %param = @_;
 
-    my $names  = $param{names} || {};
-
+    my $names  = $param{names} ||= {};
     my $schema = $class->SUPER::new(%param);
+
     my $fields = $param{struct}{fields}
         or throw Arvo::Schema::Error::ParseError("Record must have Fields");
 

@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 16;
+plan tests => 22;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -37,6 +37,23 @@ is $s3->fields->[0]{name}, 'a', 'a';
 is $s3->fields->[0]{type}, Avro::Schema::Primitive->new(type => 'long'), 'long';
 is $s3->fields->[1]{name}, 'b', 'b';
 is $s3->fields->[1]{type}, Avro::Schema::Primitive->new(type => 'string'), 'str';
+
+## self-refence
+$s3 = Avro::Schema::Record->new(
+    struct => {
+        name => 'saucisson',
+        fields => [
+            { name => 'a', type => 'long'   },
+            { name => 'b', type => 'saucisson' },
+        ],
+    },
+);
+isa_ok $s3, 'Avro::Schema::Record';
+is $s3->fullname, 'saucisson', "correct name";
+is $s3->fields->[0]{name}, 'a', 'a';
+is $s3->fields->[0]{type}, Avro::Schema::Primitive->new(type => 'long'), 'long';
+is $s3->fields->[1]{name}, 'b', 'b';
+is $s3->fields->[1]{type}, $s3, 'self!';
 
 done_testing;
 
