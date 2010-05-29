@@ -19,7 +19,7 @@ use_ok 'Avro::Schema';
                 name => $name,
                 fields => [ { name => 'a', type => 'long' } ],
             },
-        ) } "Avro::Schema::Error::NameError", "bad name: $name";
+        ) } "Avro::Schema::Error::Name", "bad name: $name";
     }
 
     for my $ns (@bad_namespaces) {
@@ -29,7 +29,7 @@ use_ok 'Avro::Schema';
                 namespace => $ns,
                 fields => [ { name => 'a', type => 'long' } ],
             },
-        ) } "Avro::Schema::Error::NameError", "bad ns: $ns";
+        ) } "Avro::Schema::Error::Name", "bad ns: $ns";
     }
 }
 

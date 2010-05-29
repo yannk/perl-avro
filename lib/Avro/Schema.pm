@@ -18,7 +18,7 @@ sub parse {
         $json->decode($json_string);
     }
     catch {
-        throw Avro::Schema::Error::ParseError(
+        throw Avro::Schema::Error::Parse(
             "Cannot parse json string: $_"
         );
     };
@@ -40,7 +40,7 @@ sub parse_struct {
     ## 1.3.2 A JSON object
     if (ref $struct eq 'HASH') {
         my $type = $struct->{type}
-            or throw Avro::Schema::Error::ParseError("type is missing");
+            or throw Avro::Schema::Error::Parse("type is missing");
         if ( Avro::Schema::Primitive->is_valid($type) ) {
             return Avro::Schema::Primitive->new(type => $type);
         }
@@ -80,7 +80,7 @@ sub parse_struct {
             );
         }
         else {
-            throw Avro::Schema::Error::ParseError("unknown type: $type");
+            throw Avro::Schema::Error::Parse("unknown type: $type");
         }
     }
     ## 1.3.2 A JSON array, representing a union of embedded types.
@@ -160,7 +160,7 @@ sub new {
     my $type = $param{type}
         or croak "Schema must have a type";
 
-    throw Avro::Schema::Error::ParseError("Not a primitive type $type")
+    throw Avro::Schema::Error::Parse("Not a primitive type $type")
         unless $class->is_valid($type);
 
     if (! exists $Singleton{ $type } ) {
@@ -239,7 +239,7 @@ sub new {
     my $struct    = $param{struct} || {};
     my $name      = $struct->{name};
     unless (defined $name && length $name) {
-        throw Avro::Schema::Error::ParseError( "Missing name for $class" );
+        throw Avro::Schema::Error::Parse( "Missing name for $class" );
     }
     my $namespace = $struct->{namespace};
     unless (defined $namespace && length $namespace) {
@@ -265,7 +265,7 @@ sub set_names {
         $name = pop @parts;
         $namespace = join ".", @parts;
         if (grep { ! length $_ } @parts) {
-            throw Avro::Schema::Error::NameError(
+            throw Avro::Schema::Error::Name(
                 "name '$name' is not a valid name"
             );
         }
@@ -276,14 +276,14 @@ sub set_names {
     ## * subsequently contain only [A-Za-z0-9_]
     my $type = $schema->{type};
     unless (length $name && $name =~ m/^[A-Za-z_][A-Za-z0-9_]*$/) {
-        throw Avro::Schema::Error::NameError(
+        throw Avro::Schema::Error::Name(
             "name '$name' is not valid for $type"
         );
     }
     if (defined $namespace && length $namespace) {
         for (split /\./, $namespace, -1) {
             unless ($_ && /^[A-Za-z_][A-Za-z0-9_]*$/) {
-                throw Avro::Schema::Error::NameError(
+                throw Avro::Schema::Error::Name(
                     "namespace '$namespace' is not valid for $type"
                 );
             }
@@ -299,7 +299,7 @@ sub add_name {
 
     my $name = $schema->fullname;
     if ( exists $names->{ $name } ) {
-        throw Avro::Schema::Error::ParseError( "Name $name is already defined" );
+        throw Avro::Schema::Error::Parse( "Name $name is already defined" );
     }
     $names->{$name} = $schema;
     Scalar::Util::weaken( $names->{$name} );
@@ -333,9 +333,9 @@ sub new {
     my $schema = $class->SUPER::new(%param);
 
     my $fields = $param{struct}{fields}
-        or throw Avro::Schema::Error::ParseError("Record must have Fields");
+        or throw Avro::Schema::Error::Parse("Record must have Fields");
 
-    throw Avro::Schema::Error::ParseError("Record.Fields must me an array")
+    throw Avro::Schema::Error::Parse("Record.Fields must me an array")
         unless ref $fields eq 'ARRAY';
 
     my $namespace = $schema->namespace;
@@ -343,11 +343,11 @@ sub new {
     my @fields;
     for my $field (@$fields) {
         my $name = $field->{name};
-        throw Arvo::Schema::Error::ParseError("Record.Field.name is required")
+        throw Arvo::Schema::Error::Parse("Record.Field.name is required")
             unless defined $name && length $name;
 
         my $type = $field->{type};
-        throw Arvo::Schema::Error::ParseError("Record.Field.name is required")
+        throw Arvo::Schema::Error::Parse("Record.Field.name is required")
             unless defined $type && length $type;
 
         $type = Avro::Schema->parse_struct($type, $names, $namespace);
@@ -359,13 +359,13 @@ sub new {
             my ($is_valid, $default) =
                 $type->is_default_valid($field->{default});
             my $t = $type->type;
-            throw Avro::Schema::Error::ParseError(
+            throw Avro::Schema::Error::Parse(
                 "default value doesn't validate $t: '$field->{default}'"
             ) unless $is_valid;
             $f->{default} = $default;
         }
         if (my $order = $field->{order}) {
-            throw Avro::Schema::Error::ParseError(
+            throw Avro::Schema::Error::Parse(
                 "Order '$order' is not valid'"
             ) unless $ValidOrder{$order};
             $f->{order} = $order;
@@ -414,20 +414,20 @@ sub new {
     my %param = @_;
     my $schema = $class->SUPER::new(%param);
     my $struct = $param{struct}
-        or throw Avro::Schema::Error::ParseError("Enum instantiation");
+        or throw Avro::Schema::Error::Parse("Enum instantiation");
     my $symbols = $struct->{symbols} || [];
 
     unless (@$symbols) {
-        throw Avro::Schema::Error::ParseError("Enum needs at least one symbol");
+        throw Avro::Schema::Error::Parse("Enum needs at least one symbol");
     }
     my %symbols;
     for (@$symbols) {
         if (ref $_) {
-            throw Avro::Schema::Error::ParseError(
+            throw Avro::Schema::Error::Parse(
                 "Enum.symbol should be a string"
             );
         }
-        throw Avro::Schema::Error::ParseError("Duplicate symbol in Enum")
+        throw Avro::Schema::Error::Parse("Duplicate symbol in Enum")
             if $symbols{$_}++;
     }
     $schema->{symbols} = \%symbols;
@@ -470,13 +470,13 @@ sub new {
     my $schema = $class->SUPER::new(%param);
 
     my $struct = $param{struct}
-        or throw Avro::Schema::Error::ParseError("Enum instantiation");
+        or throw Avro::Schema::Error::Parse("Enum instantiation");
 
     my $items = $struct->{items}
-        or throw Avro::Schema::Error::ParseError("Array must declare 'items'");
+        or throw Avro::Schema::Error::Parse("Array must declare 'items'");
 
     unless (defined $items && length $items) {
-        throw Avro::Schema::Error::ParseError(
+        throw Avro::Schema::Error::Parse(
             "Array.items should be a string"
         );
     }
@@ -515,14 +515,14 @@ sub new {
     my $schema = $class->SUPER::new(%param);
 
     my $struct = $param{struct}
-        or throw Avro::Schema::Error::ParseError("Map instantiation");
+        or throw Avro::Schema::Error::Parse("Map instantiation");
 
     my $values = $struct->{values};
     unless (defined $values && length $values) {
-        throw Avro::Schema::Error::ParseError("Map must declare 'values'");
+        throw Avro::Schema::Error::Parse("Map must declare 'values'");
     }
     if (ref $values) {
-        throw Avro::Schema::Error::ParseError(
+        throw Avro::Schema::Error::Parse(
             "Map.values should be a string"
         );
     }
@@ -561,7 +561,7 @@ sub new {
     my %param = @_;
     my $schema = $class->SUPER::new(%param);
     my $union = $param{struct}
-        or throw Avro::Schema::Error::ParseError("Union.new needs a struct");
+        or throw Avro::Schema::Error::Parse("Union.new needs a struct");
 
     my $names = $param{names} ||= {};
 
@@ -580,13 +580,13 @@ sub new {
         }
         ## XXX: I could define &type_name doing the correct resolution for all classes
         if ($seen_types{ $type }++) {
-            throw Avro::Schema::Error::ParseError(
+            throw Avro::Schema::Error::Parse(
                 "$type is present more than once in the union"
             )
         }
         ## 1.3.2 Unions may not immediately contain other unions.
         if ($type eq 'union') {
-            throw Avro::Schema::Error::ParseError(
+            throw Avro::Schema::Error::Parse(
                 "Cannot embed unions in union"
             );
         }
@@ -614,19 +614,19 @@ sub new {
     my $schema = $class->SUPER::new(%param);
 
     my $struct = $param{struct}
-        or throw Avro::Schema::Error::ParseError("Fixed instantiation");
+        or throw Avro::Schema::Error::Parse("Fixed instantiation");
 
     my $size = $struct->{size};
     unless (defined $size && length $size) {
-        throw Avro::Schema::Error::ParseError("Fixed must declare 'size'");
+        throw Avro::Schema::Error::Parse("Fixed must declare 'size'");
     }
     if (ref $size) {
-        throw Avro::Schema::Error::ParseError(
+        throw Avro::Schema::Error::Parse(
             "Fixed.size should be a scalar"
         );
     }
     unless ($size =~ m{^\d+$} && $size > 0) {
-        throw Avro::Schema::Error::ParseError(
+        throw Avro::Schema::Error::Parse(
             "Fixed.size should be a positive integer"
         );
     }
@@ -665,10 +665,10 @@ sub to_struct {
 }
 
 
-package Avro::Schema::Error::ParseError;
+package Avro::Schema::Error::Parse;
 use parent 'Error::Simple';
 
-package Avro::Schema::Error::NameError;
+package Avro::Schema::Error::Name;
 use parent 'Error::Simple';
 
 1;

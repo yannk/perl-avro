@@ -8,12 +8,12 @@ use_ok 'Avro::Schema';
 
 dies_ok { Avro::Schema->new } "Should use parse() or instantiate the subclass";
 
-throws_ok { Avro::Schema->parse(q()) } "Avro::Schema::Error::ParseError";
-throws_ok { Avro::Schema->parse(q(test)) } "Avro::Schema::Error::ParseError";
+throws_ok { Avro::Schema->parse(q()) } "Avro::Schema::Error::Parse";
+throws_ok { Avro::Schema->parse(q(test)) } "Avro::Schema::Error::Parse";
 throws_ok { Avro::Schema->parse(q({"type": t})) }
-            "Avro::Schema::Error::ParseError";
+            "Avro::Schema::Error::Parse";
 throws_ok { Avro::Schema->parse(q({"type": t})) }
-            "Avro::Schema::Error::ParseError";
+            "Avro::Schema::Error::Parse";
 
 my $s = Avro::Schema->parse(q("string"));
 isa_ok $s, 'Avro::Schema::Base';
@@ -104,7 +104,7 @@ is $s, $s2, "string Schematas are singletons";
                     { name => 'a', type => 'int', default => $_ },
                 ],
             },
-        ) } "Avro::Schema::Error::ParseError", "invalid default: $_";
+        ) } "Avro::Schema::Error::Parse", "invalid default: $_";
     }
     for (@bad_longs) {
         throws_ok  { Avro::Schema::Record->new(
@@ -113,7 +113,7 @@ is $s, $s2, "string Schematas are singletons";
                     { name => 'a', type => 'long', default => $_ },
                 ],
             },
-        ) } "Avro::Schema::Error::ParseError", "invalid default: $_";
+        ) } "Avro::Schema::Error::Parse", "invalid default: $_";
     }
 
     ## default of more complex types
@@ -125,7 +125,7 @@ is $s, $s2, "string Schematas are singletons";
                 ],
             },
         )
-    } "Avro::Schema::Error::ParseError", "union don't have default: $@";
+    } "Avro::Schema::Error::Parse", "union don't have default: $@";
 
     my $s4 = Avro::Schema->parse_struct(
         {
@@ -167,7 +167,7 @@ is $s, $s2, "string Schematas are singletons";
                     { name => 'a', type => 'long', order => $_ },
                 ],
             },
-        ) } "Avro::Schema::Error::ParseError", "invalid order: $_";
+        ) } "Avro::Schema::Error::Parse", "invalid order: $_";
     }
 }
 
@@ -194,13 +194,13 @@ EOJ
 ["null", "null"]
 EOJ
     throws_ok { Avro::Schema->parse($s) }
-              'Avro::Schema::Error::ParseError';
+              'Avro::Schema::Error::Parse';
 
     $s = <<EOJ;
 ["long", "string", "float", "string"]
 EOJ
     throws_ok { Avro::Schema->parse($s) }
-              'Avro::Schema::Error::ParseError';
+              'Avro::Schema::Error::Parse';
 
     $s = <<EOJ;
 {
@@ -217,7 +217,7 @@ EOJ
 }
 EOJ
     throws_ok { Avro::Schema->parse($s) }
-          'Avro::Schema::Error::ParseError',
+          'Avro::Schema::Error::Parse',
           'two records with same name in the union';
 
     $s = <<EOJ;
@@ -242,7 +242,7 @@ EOJ
 ["long", ["string", "float"], "string"]
 EOJ
     throws_ok { Avro::Schema->parse($s) }
-             'Avro::Schema::Error::ParseError', "cannot embed union in union";
+             'Avro::Schema::Error::Parse', "cannot embed union in union";
 }
 
 ## Enums!
@@ -291,25 +291,25 @@ EOJ
     my $s = <<EOJ;
 { "type": "fixed", "name": "somefixed", "size": "something" }
 EOJ
-    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::ParseError",
+    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::Parse",
         "size must be an int";
 
     $s = <<EOJ;
 { "type": "fixed", "name": "somefixed", "size": -100 }
 EOJ
-    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::ParseError",
+    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::Parse",
         "size must be a POSITIVE int";
 
     $s = <<EOJ;
 { "type": "fixed", "name": "somefixed", "size": 0 }
 EOJ
-    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::ParseError",
+    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::Parse",
         "size must be a POSITIVE int > 0";
 
     $s = <<EOJ;
 { "type": "fixed", "name": "somefixed", "size": 0.2 }
 EOJ
-    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::ParseError",
+    throws_ok { Avro::Schema->parse($s) } "Avro::Schema::Error::Parse",
         "size must be an int";
 
     $s = <<EOJ;
