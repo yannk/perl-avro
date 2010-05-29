@@ -66,7 +66,8 @@ is $s, $s2, "string Schematas are singletons";
     my $string = $s3->to_string;
     like $string, qr/saucisson/, "generated string has 'saucisson'";
     my $s3bis = Avro::Schema->parse($string);
-    is_deeply $s3bis, $s3, 'regenerated structure matches original';
+    is_deeply $s3bis->to_struct, $s3->to_struct,
+        'regenerated structure matches original';
 
     ## record fields can have defaults
     my @good_ints = (2, -1, -(2**31 - 1), 2_147_483_647, "2147483647"  );

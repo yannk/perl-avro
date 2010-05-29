@@ -12,6 +12,7 @@ sub parse {
     my $schema      = shift;
     my $json_string = shift;
     my $names       = shift || {};
+    my $namespace   = shift || "";
 
     my $struct = try {
         $json->decode($json_string);
@@ -21,7 +22,7 @@ sub parse {
             "Cannot parse json string: $_"
         );
     };
-    return $schema->parse_struct($struct, $names);
+    return $schema->parse_struct($struct, $names, $namespace);
 }
 
 sub to_string {
@@ -34,6 +35,7 @@ sub parse_struct {
     my $schema = shift;
     my $struct = shift;
     my $names = shift || {};
+    my $namespace = shift || "";
 
     ## 1.3.2 A JSON object
     if (ref $struct eq 'HASH') {
@@ -46,27 +48,35 @@ sub parse_struct {
             return Avro::Schema::Record->new(
                 struct => $struct,
                 names => $names,
+                namespace => $namespace,
             );
         }
         elsif ($type eq 'enum') {
-            return Avro::Schema::Enum->new(struct => $struct, names => $names);
+            return Avro::Schema::Enum->new(
+                struct => $struct,
+                names => $names,
+                namespace => $namespace,
+            );
         }
         elsif ($type eq 'array') {
             return Avro::Schema::Array->new(
                 struct => $struct,
                 names => $names,
+                namespace => $namespace,
             );
         }
         elsif ($type eq 'map') {
             return Avro::Schema::Map->new(
                 struct => $struct,
                 names => $names,
+                namespace => $namespace,
             );
         }
         elsif ($type eq 'fixed') {
             return Avro::Schema::Fixed->new(
                 struct => $struct,
                 names => $names,
+                namespace => $namespace,
             );
         }
         else {
@@ -75,7 +85,11 @@ sub parse_struct {
     }
     ## 1.3.2 A JSON array, representing a union of embedded types.
     elsif (ref $struct eq 'ARRAY') {
-        return Avro::Schema::Union->new(struct => $struct, names => $names);
+        return Avro::Schema::Union->new(
+            struct => $struct,
+            names => $names,
+            namespace => $namespace,
+        );
     }
     ## 1.3.2 A JSON string, naming a defined type.
     else {
@@ -218,14 +232,23 @@ my %NamedType = map { $_ => 1 } qw/
 sub new {
     my $class = shift;
     my %param = @_;
+
     my $schema = $class->SUPER::new(%param);
 
-    my $names  = $param{names} || {};
-    my $struct = $param{struct} || {};
-    my $name   = $schema->{fullname} = $struct->{name}
-        or throw Avro::Schema::Error::ParseError( "Missing name for $class" );
+    my $names     = $param{names}  || {};
+    my $struct    = $param{struct} || {};
+    my $name      = $struct->{name};
+    unless (defined $name && length $name) {
+        throw Avro::Schema::Error::ParseError( "Missing name for $class" );
+    }
+    my $namespace = $struct->{namespace};
+    unless (defined $namespace && length $namespace) {
+        $namespace = $param{namespace};
+    }
 
-    $class->add_name($names, $schema);
+    $schema->set_names($namespace, $name);
+    $schema->add_name($names);
+
     return $schema;
 }
 
@@ -233,9 +256,46 @@ sub is_valid {
     return $NamedType{ $_[1] || "" };
 }
 
+sub set_names {
+    my $schema = shift;
+    my ($namespace, $name) = @_;
+
+    my @parts = split /\./, ($name || ""), -1;
+    if (@parts > 1) {
+        $name = pop @parts;
+        $namespace = join ".", @parts;
+        if (grep { ! length $_ } @parts) {
+            throw Avro::Schema::Error::NameError(
+                "name '$name' is not a valid name"
+            );
+        }
+    }
+
+    ## 1.3.2 The name portion of a fullname, and record field names must:
+    ## * start with [A-Za-z_]
+    ## * subsequently contain only [A-Za-z0-9_]
+    my $type = $schema->{type};
+    unless (length $name && $name =~ m/^[A-Za-z_][A-Za-z0-9_]*$/) {
+        throw Avro::Schema::Error::NameError(
+            "name '$name' is not valid for $type"
+        );
+    }
+    if (defined $namespace && length $namespace) {
+        for (split /\./, $namespace, -1) {
+            unless ($_ && /^[A-Za-z_][A-Za-z0-9_]*$/) {
+                throw Avro::Schema::Error::NameError(
+                    "namespace '$namespace' is not valid for $type"
+                );
+            }
+        }
+    }
+    $schema->{name} = $name;
+    $schema->{namespace} = $namespace;
+}
+
 sub add_name {
-    my $class = shift;
-    my ($names, $schema) = @_;
+    my $schema = shift;
+    my ($names) = @_;
 
     my $name = $schema->fullname;
     if ( exists $names->{ $name } ) {
@@ -248,13 +308,15 @@ sub add_name {
 
 sub fullname {
     my $schema = shift;
-    return $schema->{fullname};
-}
-
-sub name {
+    return join ".",
+        grep { defined $_ && length $_ }
+        map { $schema->{$_ } }
+        qw/namespace name/;
 }
 
 sub namespace {
+    my $schema = shift;
+    return $schema->{namespace};
 }
 
 package Avro::Schema::Record;
@@ -276,6 +338,8 @@ sub new {
     throw Avro::Schema::Error::ParseError("Record.Fields must me an array")
         unless ref $fields eq 'ARRAY';
 
+    my $namespace = $schema->namespace;
+
     my @fields;
     for my $field (@$fields) {
         my $name = $field->{name};
@@ -286,7 +350,7 @@ sub new {
         throw Arvo::Schema::Error::ParseError("Record.Field.name is required")
             unless defined $type && length $type;
 
-        $type = Avro::Schema->parse_struct($type, $names);
+        $type = Avro::Schema->parse_struct($type, $names, $namespace);
         my $f = { name => $name, type => $type };
         #TODO: find where to weaken precisely
         #Scalar::Util::weaken($field->{type});
@@ -500,6 +564,7 @@ sub new {
         or throw Avro::Schema::Error::ParseError("Union.new needs a struct");
 
     my $names = $param{names} ||= {};
+
     my @schemas;
     my %seen_types;
     for my $struct (@$union) {
@@ -601,6 +666,9 @@ sub to_struct {
 
 
 package Avro::Schema::Error::ParseError;
+use parent 'Error::Simple';
+
+package Avro::Schema::Error::NameError;
 use parent 'Error::Simple';
 
 1;
