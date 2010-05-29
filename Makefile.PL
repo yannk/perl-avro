@@ -6,5 +6,7 @@ test_requires 'Test::Exception';
 requires 'JSON::XS';
 requires 'Try::Tiny';
 requires 'parent';
+requires 'Bit::Vector';
+requires 'Regexp::Common';
 auto_set_repository();
 WriteAll;
