@@ -8,6 +8,7 @@ use_ok 'Avro::Schema';
 
 ## name validation
 {
+    no warnings 'qw';
     my @bad_names = qw/0 01 0a $ % $s . - -1 (x) #s # π
                        @ !q ^f [ ( { } ) ] ~ ` ?a :a ;a 
                        a- a^ a% a[ .. ... .a .a. a./;
