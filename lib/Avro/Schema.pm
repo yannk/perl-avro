@@ -210,7 +210,7 @@ sub is_default_valid {
             require Math::BigInt;
             my $int = Math::BigInt->new($default);
             my $max = Math::BigInt->new( "0x7FFF_FFFF_FFFF_FFFF" );
-            return $int->band($max)->bcmp($max) == 0 ? (1, $default) : (0);
+            return $int->band($max)->bcmp($max) <= 0 ? (1, $default) : (0);
         }
     }
     if ($type eq 'float' or $type eq 'double') {
