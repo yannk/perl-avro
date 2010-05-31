@@ -2,7 +2,6 @@ package Avro::Schema;
 use strict;
 use warnings;
 
-use Config;
 use JSON::XS();
 use Try::Tiny;
 
@@ -137,6 +136,7 @@ sub to_string {
 package Avro::Schema::Primitive;
 our @ISA = qw/Avro::Schema::Base/;
 use Carp;
+use Config;
 use Regexp::Common qw/number/;
 
 my %PrimitiveType = map { $_ => 1 } qw/
