@@ -1,3 +1,4 @@
+use Config;
 use inc::Module::Install;
 all_from 'lib/Avro.pm';
 readme_from('lib/Avro.pm');
@@ -6,7 +7,10 @@ test_requires 'Test::Exception';
 requires 'JSON::XS';
 requires 'Try::Tiny';
 requires 'parent';
-requires 'Bit::Vector';
 requires 'Regexp::Common';
+requires 'Encode';
+unless ($Config{use64bitint}) {
+    requires 'Math::BigInt';
+}
 auto_set_repository();
 WriteAll;

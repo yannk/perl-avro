@@ -2,7 +2,7 @@ package Avro::Schema;
 use strict;
 use warnings;
 
-use Bit::Vector();
+use Config;
 use JSON::XS();
 use Try::Tiny;
 
@@ -200,14 +200,18 @@ sub is_default_valid {
         return $unpacked_int eq $default ? (1, $default) : (0);
     }
     if ($type eq 'long') {
-        ## TODO: faster with pack Q if 64bit perl
-        my $dec;
-        eval {
-            my $vec = Bit::Vector->new_Dec(64, $default);
-            $dec = $vec->to_Dec;
-        };
-        return (0) if $@;
-        return ($dec eq $default) ? (1, $default) : (0);
+        if ($Config{use64bitint}) {
+            my $packed_int = pack "q", $default;
+            my $unpacked_int = unpack "q", $packed_int;
+            return $unpacked_int eq $default ? (1, $default) : (0);
+
+        }
+        else {
+            require Math::BigInt;
+            my $int = Math::BigInt->new($default);
+            my $max = Math::BigInt->new( "0x7FFF_FFFF_FFFF_FFFF" );
+            return $int->band($max)->bcmp($max) == 0 ? (1, $default) : (0);
+        }
     }
     if ($type eq 'float' or $type eq 'double') {
         $default =~ /^$RE{num}{real}$/ ? return (1, $default) : (0);
