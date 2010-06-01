@@ -71,11 +71,24 @@ is $s, $s2, "string Schematas are singletons";
 
     ## record fields can have defaults
     my @good_ints = (2, -1, -(2**31 - 1), 2_147_483_647, "2147483647"  );
-    my @bad_ints = ("", "string", 9.22337204, 9.22337204E10, 2**32 - 1,
-                    4_294_967_296, 9_223_372_036_854_775_807, \"2");
-    my @good_longs = (1, 2, -3, 9_223_372_036_854_775_807, 3e10);
-    my @bad_longs = (9.22337204, 9.22337204E10 + 0.1,
-                    9_223_372_036_854_775_808, \"2");
+    my @bad_ints = ("", "string", 9.22337204, 9.22337204E10, \"2");
+    my @good_longs = (1, 2, -3);
+    my @bad_longs = (9.22337204, 9.22337204E10 + 0.1, \"2");
+
+    use Config;
+    if ($Config{use64bitint}) {
+        push @bad_ints, (2**32 - 1, 4_294_967_296, 9_223_372_036_854_775_807);
+        push @good_longs, (9_223_372_036_854_775_807, 3e10);
+        push @bad_longs, 9_223_372_036_854_775_808;
+    }
+    else {
+        require Math::BigInt;
+        push @bad_ints, map { Math::BigInt->new($_) }
+            ("0xFFFF_FFFF", "0x1_0000_0000", "0x7FFF_FFFF_FFFF_FFFF");
+        push @good_longs, map { Math::BigInt->new($_) }
+            ("9_223_372_036_854_775_807", "3e10");
+        push @bad_longs, Math::BigInt->new("9_223_372_036_854_775_808");
+    }
 
     for (@good_ints) {
         my $s4 = Avro::Schema::Record->new(

@@ -208,9 +208,14 @@ sub is_default_valid {
         }
         else {
             require Math::BigInt;
-            my $int = Math::BigInt->new($default);
+            my $int = eval { Math::BigInt->new($default) };
+            if ($@) {
+                warn "probably a unblessed ref: $@";
+                return (0);
+            }
+            return (0) if $int->is_nan;
             my $max = Math::BigInt->new( "0x7FFF_FFFF_FFFF_FFFF" );
-            return $int->band($max)->bcmp($max) <= 0 ? (1, $default) : (0);
+            return $int->bcmp($max) <= 0 ? (1, $default) : (0);
         }
     }
     if ($type eq 'float' or $type eq 'double') {
