@@ -22,7 +22,7 @@ sub primitive_ok {
 primitive_ok null    =>    undef, '';
 primitive_ok null    => 'whatev', '';
 
-## - high-bit of each byte should be set execpt for last one
+## - high-bit of each byte should be set except for last one
 ## - rest of bits are:
 ## - little endian
 ## - zigzag coded

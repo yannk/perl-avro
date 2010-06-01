@@ -9,7 +9,7 @@ use Config;
 our $complement = ~0x7F;
 unless ($Config{use64bitint}) {
     require Math::BigInt;
-    $complement = Math::BigInt->new("0x" . ("1" x 57) . ("0" x 7) . "b");
+    $complement = Math::BigInt->new("0b" . ("1" x 57) . ("0" x 7));
 }
 
 sub encode {
