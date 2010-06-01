@@ -174,53 +174,53 @@ sub is_type_valid {
     return $PrimitiveType{ $_[1] || "" };
 }
 
-## takes a default value and return an array:
-## ($bool, $normalized) where $bool is true if the default value is valid
-## and $normalized is the normalized default value to use
-sub is_default_valid {
+## Returns true or false wheter the given data is valid for
+## this schema
+sub is_data_valid {
     my $schema = shift;
-    my $default = shift;
+    my $data = shift;
     my $type = $schema->{type};
     if ($type eq 'null') {
-        return defined $default ? (0) : (1, undef);
+        return defined $data ? 0 : 1;
     }
     if ($type eq 'boolean') {
-        return (1, $default ? 1 : 0);
+        return 1;
     }
-    unless (defined $default && length $default) {
-        return (0);
+    unless (defined $data && length $data) {
+        return 0;
     }
     if ($type eq "bytes" or $type eq "string") {
-        return (1, $default);
+        return 1;
     }
     if ($type eq 'int') {
         no warnings;
-        my $packed_int = pack "l", $default;
+        my $packed_int = pack "l", $data;
         my $unpacked_int = unpack "l", $packed_int;
-        return $unpacked_int eq $default ? (1, $default) : (0);
+        return $unpacked_int eq $data ? 1 : 0;
     }
     if ($type eq 'long') {
         if ($Config{use64bitint}) {
-            my $packed_int = pack "q", $default;
+            my $packed_int = pack "q", $data;
             my $unpacked_int = unpack "q", $packed_int;
-            return $unpacked_int eq $default ? (1, $default) : (0);
+            return $unpacked_int eq $data ? 1 : 0;
 
         }
         else {
             require Math::BigInt;
-            my $int = eval { Math::BigInt->new($default) };
+            my $int = eval { Math::BigInt->new($data) };
             if ($@) {
                 warn "probably a unblessed ref: $@";
-                return (0);
+                return 0;
             }
-            return (0) if $int->is_nan;
+            return 0 if $int->is_nan;
             my $max = Math::BigInt->new( "0x7FFF_FFFF_FFFF_FFFF" );
-            return $int->bcmp($max) <= 0 ? (1, $default) : (0);
+            return $int->bcmp($max) <= 0 ? 1 : 0;
         }
     }
     if ($type eq 'float' or $type eq 'double') {
-        $default =~ /^$RE{num}{real}$/ ? return (1, $default) : (0);
+        $data =~ /^$RE{num}{real}$/ ? return 1 : 0;
     }
+    return 0;
 }
 
 sub to_struct {
@@ -365,13 +365,19 @@ sub new {
         #Scalar::Util::weaken($field->{type});
 
         if (exists $field->{default}) {
-            my ($is_valid, $default) =
-                $type->is_default_valid($field->{default});
+            my $is_valid = $type->is_data_valid($field->{default});
             my $t = $type->type;
             throw Avro::Schema::Error::Parse(
                 "default value doesn't validate $t: '$field->{default}'"
             ) unless $is_valid;
-            $f->{default} = $default;
+
+            ## small Perlish special case
+            if ($type eq 'boolean') {
+                $f->{default} = $field->{default} ? 1 : 0;
+            }
+            else {
+                $f->{default} = $field->{default};
+            }
         }
         if (my $order = $field->{order}) {
             throw Avro::Schema::Error::Parse(
@@ -447,11 +453,11 @@ sub new {
     return $schema;
 }
 
-sub is_default_valid {
+sub is_data_valid {
     my $schema = shift;
     my $default = shift;
-    return (1, $default) if defined $default && $schema->{symbols}{$default};
-    return (0);
+    return 1 if defined $default && $schema->{symbols}{$default};
+    return 0;
 }
 
 sub symbols {
@@ -497,11 +503,11 @@ sub new {
     return $schema;
 }
 
-sub is_default_valid {
+sub is_data_valid {
     my $schema = shift;
     my $default = shift;
-    return (1, $default) if $default && ref $default eq 'ARRAY';
-    return (0);
+    return 1 if $default && ref $default eq 'ARRAY';
+    return 0;
 }
 
 sub items {
@@ -544,11 +550,11 @@ sub new {
     return $schema;
 }
 
-sub is_default_valid {
+sub is_data_valid {
     my $schema = shift;
     my $default = shift;
-    return (1, $default) if $default && ref $default eq 'HASH';
-    return (0);
+    return 1 if $default && ref $default eq 'HASH';
+    return 0;
 }
 
 sub values {
@@ -615,7 +621,7 @@ sub schemas {
     return $schema->{schemas};
 }
 
-sub is_default_valid { (0) }
+sub is_data_valid { 0 }
 
 sub to_struct {
     my $schema = shift;
@@ -653,12 +659,12 @@ sub new {
     return $schema;
 }
 
-sub is_default_valid {
+sub is_data_valid {
     my $schema = shift;
     my $default = shift;
     my $size = $schema->{size};
-    return (1, $default) if $default && bytes::length $default == $size;
-    return (0);
+    return 1 if $default && bytes::length $default == $size;
+    return 0;
 }
 
 sub size {
