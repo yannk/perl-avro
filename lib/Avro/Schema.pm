@@ -430,14 +430,18 @@ sub new {
         throw Avro::Schema::Error::Parse("Enum needs at least one symbol");
     }
     my %symbols;
+    my $pos = 0;
     for (@$symbols) {
+        $pos++;
         if (ref $_) {
             throw Avro::Schema::Error::Parse(
                 "Enum.symbol should be a string"
             );
         }
         throw Avro::Schema::Error::Parse("Duplicate symbol in Enum")
-            if $symbols{$_}++;
+            if $symbols{$_};
+
+        $symbols{$_} = $pos;
     }
     $schema->{symbols} = \%symbols;
     return $schema;
@@ -672,7 +676,6 @@ sub to_struct {
         size => $schema->{size},
     };
 }
-
 
 package Avro::Schema::Error::Parse;
 use parent 'Error::Simple';
