@@ -610,6 +610,11 @@ sub new {
     return $schema;
 }
 
+sub schemas {
+    my $schema = shift;
+    return $schema->{schemas};
+}
+
 sub is_default_valid { (0) }
 
 sub to_struct {

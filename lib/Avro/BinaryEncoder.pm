@@ -2,9 +2,9 @@ package Avro::BinaryEncoder;
 use strict;
 use warnings;
 
+use Config;
 use Encode();
 use Error::Simple;
-use Config;
 
 our $complement = ~0x7F;
 unless ($Config{use64bitint}) {
@@ -171,7 +171,20 @@ sub encode_map {
 sub encode_union {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
-
+    my $idx = 0;
+    my $elected_schema;
+    for my $inner_schema (@{$schema->schemas}) {
+        if ($inner_schema->is_valid($data)) {
+            $elected_schema = $inner_schema;
+            last;
+        }
+        $idx++;
+    }
+    unless ($elected_schema) {
+        throw Avro::BinaryEncoder::Error("union cannot validate the data");
+    }
+    $class->encode_long(undef, $idx, $cb);
+    $class->encode($elected_schema, $data, $cb);
 }
 
 ## 1.3.2 Fixed instances are encoded using the number of bytes declared in the
