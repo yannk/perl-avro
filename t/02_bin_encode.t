@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use Config;
 use Test::More tests => 17;
 use Test::Exception;
 use Math::BigInt;
@@ -41,7 +42,15 @@ primitive_ok int     =>      -65, pack("C*", 0b1000_0001, 0b0000_0001);
 primitive_ok int     => Math::BigInt->new(-65), $p;
 
 throws_ok {
-    primitive_ok int => 1<<32, undef;
+    my $toobig;
+    if ($Config{use64bitint}) {
+        $toobig = 1<<32;
+    }
+    else {
+        require Math::BigInt;
+        $toobig = Math::BigInt->new(1)->blsft(32);
+    }
+    primitive_ok int => $toobig, undef;
 } "Avro::BinaryEncoder::Error", "33 bits";
 
 throws_ok {
