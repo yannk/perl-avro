@@ -174,7 +174,7 @@ sub encode_union {
     my $idx = 0;
     my $elected_schema;
     for my $inner_schema (@{$schema->schemas}) {
-        if ($inner_schema->is_valid($data)) {
+        if ($inner_schema->is_data_valid($data)) {
             $elected_schema = $inner_schema;
             last;
         }

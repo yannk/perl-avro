@@ -40,7 +40,7 @@ sub parse_struct {
     if (ref $struct eq 'HASH') {
         my $type = $struct->{type}
             or throw Avro::Schema::Error::Parse("type is missing");
-        if ( Avro::Schema::Primitive->is_valid($type) ) {
+        if ( Avro::Schema::Primitive->is_type_valid($type) ) {
             return Avro::Schema::Primitive->new(type => $type);
         }
         if ($type eq 'record') {
@@ -161,7 +161,7 @@ sub new {
         or croak "Schema must have a type";
 
     throw Avro::Schema::Error::Parse("Not a primitive type $type")
-        unless $class->is_valid($type);
+        unless $class->is_type_valid($type);
 
     if (! exists $Singleton{ $type } ) {
         my $schema = $class->SUPER::new( type => $type );
@@ -170,7 +170,7 @@ sub new {
     return $Singleton{ $type };
 }
 
-sub is_valid {
+sub is_type_valid {
     return $PrimitiveType{ $_[1] || "" };
 }
 
@@ -261,7 +261,7 @@ sub new {
     return $schema;
 }
 
-sub is_valid {
+sub is_type_valid {
     return $NamedType{ $_[1] || "" };
 }
 
@@ -588,7 +588,7 @@ sub new {
         ## type, except for the named types record, fixed and enum. For
         ## example, unions containing two array types or two map types are not
         ## permitted, but two types with different names are permitted.
-        if (Avro::Schema::Named->is_valid($type)) {
+        if (Avro::Schema::Named->is_type_valid($type)) {
             $type = $sch->fullname; # resolve Named types to their name
         }
         ## XXX: I could define &type_name doing the correct resolution for all classes
