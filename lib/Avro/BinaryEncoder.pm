@@ -16,7 +16,8 @@ sub encode {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
 
-    my $type = $schema->type;
+    ## a schema can also be just a string
+    my $type = ref $schema ? $schema->type : $schema;
 
     ## might want to profile and optimize this
     my $meth = "encode_$type";

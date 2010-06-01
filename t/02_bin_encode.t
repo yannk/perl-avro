@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Avro::Schema;
 use Config;
-use Test::More tests => 17;
+use Test::More tests => 22;
 use Test::Exception;
 use Math::BigInt;
 
@@ -70,10 +70,42 @@ sub primitive_ok {
 
 ## spec examples
 {
-    my $enc;
+    my $enc = '';
     my $schema = Avro::Schema->parse(q({ "type": "string" }));
-    Avro::BinaryEncoder->encode($schema, "foo", sub { $enc = ${ $_[0] } });
-    is $enc, "\x06\x66\x6f\x6f";
+    Avro::BinaryEncoder->encode($schema, "foo", sub { $enc .= ${ $_[0] } });
+    is $enc, "\x06\x66\x6f\x6f", "Binary_Encodings.Primitive_Types";
+
+    $schema = Avro::Schema->parse(<<EOJ);
+          {
+          "type": "record",
+          "name": "test",
+          "fields" : [
+          {"name": "a", "type": "long"},
+          {"name": "b", "type": "string"}
+          ]
+          }
+EOJ
+    $enc = '';
+    Avro::BinaryEncoder->encode(
+        $schema,
+        { a => 27, b => 'foo' },
+        sub { $enc .= ${ $_[0] } },
+    );
+    is $enc, "\x36\x06\x66\x6f\x6f", "Binary_Encodings.Complex_Types.Records";
+
+    $enc = '';
+    $schema = Avro::Schema->parse(q({"type": "array", "items": "long"}));
+    Avro::BinaryEncoder->encode($schema, [3, 27], sub { $enc .= ${ $_[0] } });
+    is $enc, "\x04\x06\x36\x00", "Binary_Encodings.Complex_Types.Arrays";
+
+    $enc = '';
+    $schema = Avro::Schema->parse(q(["string","null"]));
+    Avro::BinaryEncoder->encode($schema, undef, sub { $enc .= ${ $_[0] } });
+    is $enc, "\x02", "Binary_Encodings.Complex_Types.Unions-null";
+
+    $enc = '';
+    Avro::BinaryEncoder->encode($schema, "a", sub { $enc .= ${ $_[0] } });
+    is $enc, "\x00\x02\x61", "Binary_Encodings.Complex_Types.Unions-a";
 }
 
 done_testing;
