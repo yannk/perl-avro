@@ -12,9 +12,37 @@ unless ($Config{use64bitint}) {
     $complement = Math::BigInt->new("0b" . ("1" x 57) . ("0" x 7));
 }
 
+=head2 encode(%param)
+
+Encodes the given C<data> according to the given C<schema>, and pass it
+to the C<emit_cb>
+
+Params are:
+
+=over 4
+
+=item * data
+
+The data to encode (can be any perl data structure, but it should match
+schema)
+
+=item * schema
+
+The schema to use to encode C<data>
+
+=item * emit_cb($byte_ref)
+
+The callback that will be invoked with the a reference to the encoded data
+in parameters.
+
+=back
+
+=cut
+
 sub encode {
     my $class = shift;
-    my ($schema, $data, $cb) = @_;
+    my %param = @_;
+    my ($schema, $data, $cb) = @param{qw/schema data emit_cb/};
 
     ## a schema can also be just a string
     my $type = ref $schema ? $schema->type : $schema;
@@ -95,7 +123,11 @@ sub encode_record {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
     for my $field (@{ $schema->fields }) {
-        $class->encode($field->{type}, $data->{ $field->{name} }, $cb);
+        $class->encode(
+            schema => $field->{type},
+            data => $data->{ $field->{name} },
+            emit_cb => $cb,
+        );
     }
 }
 
@@ -128,7 +160,11 @@ sub encode_array {
     if (@$data) {
         $class->encode_long(undef, scalar @$data, $cb);
         for (@$data) {
-            $class->encode($schema->items, $_, $cb);
+            $class->encode(
+                schema => $schema->items,
+                data => $_,
+                emit_cb => $cb,
+            );
         }
     }
     ## end of the only block
@@ -158,7 +194,11 @@ sub encode_map {
             $class->encode_string(undef, $_, $cb);
 
             ## the value
-            $class->encode($schema->values->{$_}, $data->{$_}, $cb);
+            $class->encode(
+                schema => $schema->values->{$_},
+                data => $data->{$_},
+                emit_cb => $cb,
+            );
         }
     }
     ## end of the only block
@@ -184,7 +224,11 @@ sub encode_union {
         throw Avro::BinaryEncoder::Error("union cannot validate the data");
     }
     $class->encode_long(undef, $idx, $cb);
-    $class->encode($elected_schema, $data, $cb);
+    $class->encode(
+        schema => $elected_schema,
+        data => $data,
+        emit_cb => $cb,
+    );
 }
 
 ## 1.3.2 Fixed instances are encoded using the number of bytes declared in the

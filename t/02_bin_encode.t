@@ -72,7 +72,11 @@ sub primitive_ok {
 {
     my $enc = '';
     my $schema = Avro::Schema->parse(q({ "type": "string" }));
-    Avro::BinaryEncoder->encode($schema, "foo", sub { $enc .= ${ $_[0] } });
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => "foo",
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
     is $enc, "\x06\x66\x6f\x6f", "Binary_Encodings.Primitive_Types";
 
     $schema = Avro::Schema->parse(<<EOJ);
@@ -87,24 +91,36 @@ sub primitive_ok {
 EOJ
     $enc = '';
     Avro::BinaryEncoder->encode(
-        $schema,
-        { a => 27, b => 'foo' },
-        sub { $enc .= ${ $_[0] } },
+        schema => $schema,
+        data => { a => 27, b => 'foo' },
+        emit_cb => sub { $enc .= ${ $_[0] } },
     );
     is $enc, "\x36\x06\x66\x6f\x6f", "Binary_Encodings.Complex_Types.Records";
 
     $enc = '';
     $schema = Avro::Schema->parse(q({"type": "array", "items": "long"}));
-    Avro::BinaryEncoder->encode($schema, [3, 27], sub { $enc .= ${ $_[0] } });
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => [3, 27],
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
     is $enc, "\x04\x06\x36\x00", "Binary_Encodings.Complex_Types.Arrays";
 
     $enc = '';
     $schema = Avro::Schema->parse(q(["string","null"]));
-    Avro::BinaryEncoder->encode($schema, undef, sub { $enc .= ${ $_[0] } });
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => undef,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
     is $enc, "\x02", "Binary_Encodings.Complex_Types.Unions-null";
 
     $enc = '';
-    Avro::BinaryEncoder->encode($schema, "a", sub { $enc .= ${ $_[0] } });
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => "a",
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
     is $enc, "\x00\x02\x61", "Binary_Encodings.Complex_Types.Unions-a";
 }
 
