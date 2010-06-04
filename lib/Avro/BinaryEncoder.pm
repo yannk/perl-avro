@@ -139,8 +139,7 @@ sub encode_enum {
     my $symbols = $schema->symbols;
     my $pos = $symbols->{ $data };
     throw Avro::BinaryEncoder::Error("Cannot find enum $data")
-        unless $pos;
-    $pos--;
+        unless defined $pos;
     $class->encode_int(undef, $pos, $cb);
 }
 

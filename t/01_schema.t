@@ -269,8 +269,8 @@ EOJ
     is $schema->symbols->[0], "A", "symbol A";
     is $schema->symbols->[1], "B", "symbol B";
     my $string = $schema->to_string;
-    my $s2 = Avro::Schema->parse($string);
-    is_deeply $s2, $schema, "reserialized identically";
+    my $s2 = Avro::Schema->parse($string)->to_struct;
+    is_deeply $s2, $schema->to_struct, "reserialized identically";
 }
 
 ## Arrays

@@ -438,31 +438,34 @@ sub new {
     my %symbols;
     my $pos = 0;
     for (@$symbols) {
-        $pos++;
         if (ref $_) {
             throw Avro::Schema::Error::Parse(
                 "Enum.symbol should be a string"
             );
         }
         throw Avro::Schema::Error::Parse("Duplicate symbol in Enum")
-            if $symbols{$_};
+            if exists $symbols{$_};
 
-        $symbols{$_} = $pos;
+        $symbols{$_} = $pos++;
     }
-    $schema->{symbols} = \%symbols;
+    $schema->{hash_symbols} = \%symbols;
     return $schema;
 }
 
 sub is_data_valid {
     my $schema = shift;
     my $default = shift;
-    return 1 if defined $default && $schema->{symbols}{$default};
+    return 1 if defined $default && $schema->{hash_symbols}{$default};
     return 0;
 }
 
 sub symbols {
     my $schema = shift;
-    return [ keys %{ $schema->{symbols} } ];
+    unless (exists $schema->{symbols}) {
+        my $sym = $schema->{hash_symbols};
+        $schema->{symbols} = [ sort { $sym->{$a} <=> $sym->{$b} } keys %$sym ];
+    }
+    return $schema->{symbols};
 }
 
 sub to_struct {
@@ -476,7 +479,7 @@ sub to_struct {
     return {
         type => 'enum',
         name => $schema->fullname,
-        symbols => [ keys %{ $schema->{symbols} } ],
+        symbols => [ @{ $schema->symbols } ],
     };
 }
 
