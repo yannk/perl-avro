@@ -2,6 +2,7 @@ package Avro::Schema;
 use strict;
 use warnings;
 
+use Carp;
 use JSON::XS();
 use Try::Tiny;
 
@@ -103,6 +104,64 @@ sub parse_struct {
         }
     }
 }
+
+sub match {
+    my $class = shift;
+    my %param = @_;
+
+    my $reader = $param{reader}
+        or croak "missing reader schema";
+    my $writer = $param{writer}
+        or croak "missing writer schema";
+
+    my $wtype = ref $writer ? $writer->type : $writer;
+    my $rtype = ref $reader ? $reader->type : $reader;
+    ## 1.3.2 either schema is a union
+    return 1 if $wtype eq 'union' or $rtype eq 'union';
+
+    ## 1.3.2 both schemas have same primitive type
+    return 1 if $wtype eq $rtype
+             && Avro::Schema::Primitive->is_type_valid($wtype);
+
+    ## 1.3.2
+    ## int is promotable to long, float, or double
+    if ($wtype eq 'int' && (
+        $rtype eq 'float' or $rtype eq 'long' or $rtype eq 'double'
+    )) {
+        return 1;
+    }
+    ## long is promotable to float or double
+    if ($wtype eq 'long' && (
+        $rtype eq 'float' or $rtype eq 'double'
+    )) {
+        return 1;
+    }
+    ## float is promotable to double
+    if ($wtype eq 'float' && $rtype eq 'double') {
+        return 1;
+    }
+    return 0 unless $rtype eq $wtype;
+
+    ## 1.3.2 {subtype and/or names} match
+    if ($rtype eq 'array') {
+        return 1 if $reader->items eq $writer->items;
+    }
+    elsif ($rtype eq 'record') {
+        return 1 if $reader->fullname eq $writer->fullname;
+    }
+    elsif ($rtype eq 'map') {
+        return 1 if $reader->values eq $writer->values;
+    }
+    elsif ($rtype eq 'fixed') {
+        return 1 if $reader->size     eq $writer->size
+                 && $reader->fullname eq $writer->fullname;
+    }
+    elsif ($rtype eq 'enum') {
+        return 1 if $reader->fullname eq $writer->fullname;
+    }
+    return 0;
+}
+
 
 package Avro::Schema::Base;
 use Carp;

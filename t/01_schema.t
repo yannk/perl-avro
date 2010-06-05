@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 88;
+plan tests => 121;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -338,4 +338,77 @@ EOJ
     is_deeply $s2, $schema, "reserialized identically";
 }
 
+## Schema resolution
+{
+    my @s = split /\n/, <<EOJ;
+{ "type": "int" }
+{ "type": "long" }
+{ "type": "float" }
+{ "type": "double" }
+{ "type": "boolean" }
+{ "type": "null" }
+{ "type": "string" }
+{ "type": "bytes" }
+{ "type": "array", "items": "string" }
+{ "type": "fixed", "size": 1, "name": "fixed" }
+{ "type": "enum", "name": "enum", "symbols": [ "s" ] }
+{ "type": "map", "name": "map", "values": "long" }
+{ "type": "record", "name": "r", "fields": [ { "name": "a", "type": "long" }] }
+EOJ
+    my %s;
+    for (@s) {
+        my $schema = Avro::Schema->parse($_);
+        $s{ $schema->type } = $schema;
+        ok ( Avro::Schema->match(
+                reader => $schema,
+                writer => $schema,
+        ), "identical match!");
+    }
+
+    ## schema promotion
+    match_ok($s{int},    $s{long});
+    match_ok($s{int},    $s{float});
+    match_ok($s{int},    $s{double});
+    match_ok($s{long},   $s{float});
+    match_ok($s{double}, $s{double});
+    match_ok($s{float},  $s{double});
+
+    ## some non promotion
+    match_nok($s{long},    $s{int});
+    match_nok($s{float},   $s{int});
+    match_nok($s{string},  $s{bytes});
+    match_nok($s{bytes},   $s{string});
+    match_nok($s{double},  $s{float});
+    match_nok($s{null},    $s{boolean});
+    match_nok($s{boolean}, $s{int});
+    match_nok($s{boolean}, $s{string});
+    match_nok($s{boolean}, $s{fixed});
+
+    ## complex type details
+    my @alt = split /\n/, <<EOJ;
+{ "type": "array", "items": "int" }
+{ "type": "fixed", "size": 2, "name": "fixed" }
+{ "type": "enum", "name": "enum2", "symbols": [ "b" ] }
+{ "type": "map", "name": "map", "values": "null" }
+{ "type": "record", "name": "r2", "fields": [ { "name": "b", "type": "long" }] }
+EOJ
+    my %alt;
+    for (@alt) {
+        my $schema = Avro::Schema->parse($_);
+        $alt{ $schema->type } = $schema;
+        match_nok($s{$schema->type}, $schema, "not same subtypes/names");
+    }
+}
+
+sub match_ok {
+    my ($w, $r, $msg) = @_;
+    $msg ||= "match_ok";
+    ok Avro::Schema->match(reader => $r, writer => $w), $msg;
+}
+
+sub match_nok {
+    my ($w, $r, $msg) = @_;
+    $msg ||= "non matching";
+    ok !Avro::Schema->match(reader => $r, writer => $w), $msg;
+}
 done_testing;
