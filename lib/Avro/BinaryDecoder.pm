@@ -5,6 +5,7 @@ use warnings;
 use Config;
 use Encode();
 use Error::Simple;
+use Avro::Schema;
 
 our $complement = ~0x7F;
 unless ($Config{use64bitint}) {
@@ -135,14 +136,12 @@ sub decode_enum {
     my ($writer_schema, $reader_schema, $reader) = @_;
     my $index = decode_int($class, @_);
 
-    my $symbols = $writer_schema->symbols;
-    my $enum_schema = $symbols->[$index];
-    my $data = $class->decode(
-        writer_schema => $enum_schema,
-        reader_schema => $enum_schema,
-        reader        => $reader,
-    );
-    return $data;
+    my $w_data = $writer_schema->symbols->[$index];
+    ## 1.3.2 if the writer's symbol is not present in the reader's enum,
+    ## then an error is signalled.
+    throw Avro::Schema::Error::DataMismatch("enum unknown")
+        unless $reader_schema->is_data_valid($w_data);
+    return $w_data;
 }
 
 ## 1.3.2 Arrays are encoded as a series of blocks. Each block consists of a

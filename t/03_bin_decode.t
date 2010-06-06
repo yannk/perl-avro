@@ -3,7 +3,9 @@
 use strict;
 use warnings;
 use Avro::Schema;
-use Test::More tests => 6;
+use Avro::BinaryEncoder;
+use Test::More tests => 12;
+use Test::Exception;
 use IO::String;
 
 use_ok 'Avro::BinaryDecoder';
@@ -64,6 +66,45 @@ EOJ
         reader        => $reader,
     );
     is $dec, "a", "Binary_Encodings.Complex_Types.Unions-a";
+}
+
+## schema resolution
+{
+
+    my $w_enum = Avro::Schema->parse(<<EOP);
+{ "type": "enum", "name": "enum", "symbols": [ "a", "b", "c", "\$", "z" ] }
+EOP
+    my $r_enum = Avro::Schema->parse(<<EOP);
+{ "type": "enum", "name": "enum", "symbols": [ "\$", "b", "c", "d" ] }
+EOP
+    ok ! !Avro::Schema->match( reader => $r_enum, writer => $w_enum ), "match";
+    my $enc;
+    for my $data (qw/b c $/) {
+        Avro::BinaryEncoder->encode(
+            schema  => $w_enum,
+            data    => $data,
+            emit_cb => sub { $enc = ${ $_[0] } },
+        );
+        my $dec = Avro::BinaryDecoder->decode(
+            writer_schema => $w_enum,
+            reader_schema => $r_enum,
+            reader => IO::String->new($enc),
+        );
+        is $dec, $data, "decoded!";
+    }
+
+    for my $data (qw/a z/) {
+        Avro::BinaryEncoder->encode(
+            schema  => $w_enum,
+            data    => $data,
+            emit_cb => sub { $enc = ${ $_[0] } },
+        );
+        throws_ok { Avro::BinaryDecoder->decode(
+            writer_schema => $w_enum,
+            reader_schema => $r_enum,
+            reader => IO::String->new($enc),
+        )} "Avro::Schema::Error::DataMismatch", "schema problem";
+    }
 }
 
 done_testing;

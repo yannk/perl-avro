@@ -136,7 +136,7 @@ sub encode_record {
 sub encode_enum {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
-    my $symbols = $schema->symbols;
+    my $symbols = $schema->symbols_as_hash;
     my $pos = $symbols->{ $data };
     throw Avro::BinaryEncoder::Error("Cannot find enum $data")
         unless defined $pos;

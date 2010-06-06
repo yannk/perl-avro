@@ -513,8 +513,8 @@ sub new {
 
 sub is_data_valid {
     my $schema = shift;
-    my $default = shift;
-    return 1 if defined $default && $schema->{hash_symbols}{$default};
+    my $data = shift;
+    return 1 if defined $data && exists $schema->{hash_symbols}{$data};
     return 0;
 }
 
@@ -525,6 +525,11 @@ sub symbols {
         $schema->{symbols} = [ sort { $sym->{$a} <=> $sym->{$b} } keys %$sym ];
     }
     return $schema->{symbols};
+}
+
+sub symbols_as_hash {
+    my $schema = shift;
+    return $schema->{hash_symbols} || {};
 }
 
 sub to_struct {
@@ -754,6 +759,9 @@ package Avro::Schema::Error::Parse;
 use parent 'Error::Simple';
 
 package Avro::Schema::Error::Name;
+use parent 'Error::Simple';
+
+package Avro::Schema::Error::DataMismatch;
 use parent 'Error::Simple';
 
 1;
