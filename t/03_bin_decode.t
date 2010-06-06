@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Avro::Schema;
 use Avro::BinaryEncoder;
-use Test::More tests => 16;
+use Test::More tests => 17;
 use Test::Exception;
 use IO::String;
 
@@ -148,6 +148,30 @@ EOJ
             reader => IO::String->new($enc),
         );
     } "Avro::Schema::Error::DataMismatch", "no default value!";
+}
+
+## union resolution
+{
+    my $w_schema = Avro::Schema->parse(<<EOP);
+[ "string", "null", { "type": "array", "items": "long" }]
+EOP
+    my $r_schema = Avro::Schema->parse(<<EOP);
+[ "boolean", "null", { "type": "array", "items": "double" }]
+EOP
+    my $enc = '';
+    my $data = [ 1, 2, 3, 4, 5, 6 ];
+    Avro::BinaryEncoder->encode(
+        schema  => $w_schema,
+        data    => $data,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    my $dec = Avro::BinaryDecoder->decode(
+        writer_schema => $w_schema,
+        reader_schema => $r_schema,
+        reader => IO::String->new($enc),
+    );
+
+    is_deeply $dec, $data, "decoded!";
 }
 
 done_testing;
