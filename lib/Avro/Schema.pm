@@ -480,6 +480,16 @@ sub fields {
     return $schema->{fields};
 }
 
+sub fields_as_hash {
+    my $schema = shift;
+    unless (exists $schema->{_fields_as_hash}) {
+        $schema->{_fields_as_hash} = {
+            map { $_->{name} => $_ } @{ $schema->{fields} }
+        };
+    }
+    return $schema->{_fields_as_hash};
+}
+
 package Avro::Schema::Enum;
 our @ISA = qw/Avro::Schema::Named/;
 

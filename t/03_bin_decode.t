@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Avro::Schema;
 use Avro::BinaryEncoder;
-use Test::More tests => 12;
+use Test::More tests => 16;
 use Test::Exception;
 use IO::String;
 
@@ -62,13 +62,13 @@ EOJ
     $reader =  IO::String->new("\x00\x02\x61");
     $dec = Avro::BinaryDecoder->decode(
         writer_schema => $schema,
-        reader_schema => $schema, 
+        reader_schema => $schema,
         reader        => $reader,
     );
     is $dec, "a", "Binary_Encodings.Complex_Types.Unions-a";
 }
 
-## schema resolution
+## enum schema resolution
 {
 
     my $w_enum = Avro::Schema->parse(<<EOP);
@@ -105,6 +105,49 @@ EOP
             reader => IO::String->new($enc),
         )} "Avro::Schema::Error::DataMismatch", "schema problem";
     }
+}
+
+## record resolution
+{
+    my $w_schema = Avro::Schema->parse(<<EOJ);
+          { "type": "record", "name": "test",
+            "fields" : [
+                {"name": "a", "type": "long"},
+                {"name": "bonus", "type": "string"} ]}
+EOJ
+
+    my $r_schema = Avro::Schema->parse(<<EOJ);
+          { "type": "record", "name": "test",
+            "fields" : [
+                {"name": "t", "type": "float", "default": 37.5 },
+                {"name": "a", "type": "long"} ]}
+EOJ
+
+    my $data = { a => 1, bonus => "i" };
+    my $enc = '';
+    Avro::BinaryEncoder->encode(
+        schema  => $w_schema,
+        data    => $data,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    my $dec = Avro::BinaryDecoder->decode(
+        writer_schema => $w_schema,
+        reader_schema => $r_schema,
+        reader => IO::String->new($enc),
+    );
+    is $dec->{a}, 1, "easy";
+    ok ! exists $dec->{bonus}, "bonus extra field ignored";
+    is $dec->{t}, 37.5, "default t from reader used";
+
+    ## delete the default for t
+    delete $r_schema->fields->[0]{default};
+    throws_ok {
+        Avro::BinaryDecoder->decode(
+            writer_schema => $w_schema,
+            reader_schema => $r_schema,
+            reader => IO::String->new($enc),
+        );
+    } "Avro::Schema::Error::DataMismatch", "no default value!";
 }
 
 done_testing;

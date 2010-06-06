@@ -55,11 +55,20 @@ sub decode {
     return $class->$meth($writer_schema, $reader_schema, $reader);
 }
 
+sub skip {
+    my $class = shift;
+    my ($schema, $reader) = @_;
+    my $type = ref $schema ? $schema->type : $schema;
+    my $meth = "skip_$type";
+    return $class->$meth($schema, $reader);
+}
+
 sub resolve_schema {
 }
 
 sub decode_null { undef }
 
+sub skip_boolean { &decode_boolean }
 sub decode_boolean {
     my $class = shift;
     my $reader = pop;
@@ -67,17 +76,20 @@ sub decode_boolean {
     return $bool ? 1 : 0;
 }
 
+sub skip_int { &decode_int }
 sub decode_int {
     my $class = shift;
     my $reader = pop;
     return zigzag(unsigned_varint($reader));
 }
 
+sub skip_long { &decode_long };
 sub decode_long {
     my $class = shift;
     return decode_int($class, @_);
 }
 
+sub skip_float { &decode_float }
 sub decode_float {
     my $class = shift;
     my $reader = pop;
@@ -85,11 +97,20 @@ sub decode_float {
     return unpack "f<", $buf;
 }
 
+sub skip_double { &decode_double }
 sub decode_double {
     my $class = shift;
     my $reader = pop;
     $reader->read(my $buf, 8);
     return pack "d<", $buf,
+}
+
+sub skip_bytes {
+    my $class = shift;
+    my $reader = pop;
+    my $size = decode_long($class, undef, undef, $reader);
+    $reader->seek($size, 0);
+    return;
 }
 
 sub decode_bytes {
@@ -100,11 +121,20 @@ sub decode_bytes {
     return $buf;
 }
 
+sub skip_string { &skip_bytes }
 sub decode_string {
     my $class = shift;
     my $reader = pop;
     my $bytes = decode_bytes($class, undef, undef, $reader);
     return Encode::decode_utf8($bytes);
+}
+
+sub skip_record {
+    my $class = shift;
+    my ($schema, $reader) = @_;
+    for my $field (@{ $schema->fields }){
+        skip($class, $field->{type}, $reader);
+    }
 }
 
 ## 1.3.2 A record is encoded by encoding the values of its fields in the order
@@ -115,19 +145,44 @@ sub decode_record {
     my $class = shift;
     my ($writer_schema, $reader_schema, $reader) = @_;
     my $record;
+
+    my %extra_fields = %{ $reader_schema->fields_as_hash };
     for my $field (@{ $writer_schema->fields }) {
-        ## TODO: schema resolution
-        my $field_schema = $field->{type};
+        my $name = $field->{name};
+        my $w_field_schema = $field->{type};
+        my $r_field_schema = delete $extra_fields{$name};
+
+        ## 1.3.2 if the writer's record contains a field with a name not
+        ## present in the reader's record, the writer's value for that field
+        ## is ignored.
+        if (! $r_field_schema) {
+            $class->skip($w_field_schema, $reader);
+            next;
+        }
         my $data = $class->decode(
-            writer_schema => $field_schema,
-            reader_schema => $field_schema,
+            writer_schema => $w_field_schema,
+            reader_schema => $r_field_schema,
             reader        => $reader,
         );
-        $record->{ $field->{name} } = $data;
+        $record->{ $name } = $data;
     }
-    ## TODO: default values. (grep)
+
+    for my $name (keys %extra_fields) {
+        ## 1.3.2. if the reader's record schema has a field with no default
+        ## value, and writer's schema does not have a field with the same
+        ## name, an error is signalled.
+        unless (exists $extra_fields{$name}->{default}) {
+            throw Avro::Schema::Error::DataMismatch(
+                "cannot resolve without default"
+            );
+        }
+        ## 1.3.2 ... else the default value is used
+        $record->{ $name } = $extra_fields{$name}->{default};
+    }
     return $record;
 }
+
+sub skip_enum { &skip_int }
 
 ## 1.3.2 An enum is encoded by a int, representing the zero-based position of
 ## the symbol in the schema.
@@ -142,6 +197,30 @@ sub decode_enum {
     throw Avro::Schema::Error::DataMismatch("enum unknown")
         unless $reader_schema->is_data_valid($w_data);
     return $w_data;
+}
+
+sub skip_block {
+    my $class = shift;
+    my ($reader, $block_content) = @_;
+    my $block_count = decode_long($class, undef, undef, $reader);
+    while ($block_count) {
+        if ($block_count < 0) {
+            $reader->seek($block_count, 0);
+            next;
+        }
+        else {
+            for (1..$block_count) {
+                $block_content->();
+            }
+        }
+        $block_count = decode_long($class, undef, undef, $reader);
+    }
+}
+
+sub skip_array {
+    my $class = shift;
+    my ($schema, $reader) = @_;
+    skip_block($reader, sub { $class->skip($schema->items, $reader) });
 }
 
 ## 1.3.2 Arrays are encoded as a series of blocks. Each block consists of a
@@ -174,6 +253,14 @@ sub decode_array {
     return \@array;
 }
 
+sub skip_map {
+    my $class = shift;
+    my ($schema, $reader) = @_;
+    skip_block($reader, sub {
+        skip_string($class, $reader);
+        $class->skip($schema->values, $reader);
+    });
+}
 
 ## 1.3.2 Maps are encoded as a series of blocks. Each block consists of a long
 ## count value, followed by that many key/value pairs. A block with count zero
@@ -210,6 +297,15 @@ sub decode_map {
     return \%hash;
 }
 
+sub skip_union {
+    my $class = shift;
+    my ($schema, $reader) = @_;
+    my $idx = decode_long($class, undef, undef, $reader);
+    my $union_schema = $schema->schemas->[$idx]
+        or throw Avro::Schema::Error::Parse("union union member");
+    $class->skip($union_schema, $reader);
+}
+
 ## 1.3.2 A union is encoded by first writing a long value indicating the
 ## zero-based position within the union of the schema of its value. The value
 ## is then encoded per the indicated schema within the union.
@@ -224,6 +320,12 @@ sub decode_union {
         writer_schema => $union_schema,
         reader => $reader,
     );
+}
+
+sub skip_fixed {
+    my $class = shift;
+    my ($schema, $reader) = @_;
+    $reader->seek($schema->size, 0);
 }
 
 ## 1.3.2 Fixed instances are encoded using the number of bytes declared in the

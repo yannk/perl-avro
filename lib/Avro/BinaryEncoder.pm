@@ -124,8 +124,8 @@ sub encode_record {
     my ($schema, $data, $cb) = @_;
     for my $field (@{ $schema->fields }) {
         $class->encode(
-            schema => $field->{type},
-            data => $data->{ $field->{name} },
+            schema  => $field->{type},
+            data    => $data->{ $field->{name} },
             emit_cb => $cb,
         );
     }
