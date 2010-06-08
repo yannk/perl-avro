@@ -315,6 +315,9 @@ sub decode_union {
     my $idx = decode_long($class, @_);
     my $union_schema = $writer_schema->schemas->[$idx];
     ## XXX TODO: schema resolution
+    # The first schema in the reader's union that matches the selected writer's
+    # union schema is recursively resolved against it. if none match, an error
+    # is signalled.
     return $class->decode(
         reader_schema => $union_schema,
         writer_schema => $union_schema,
@@ -333,7 +336,6 @@ sub skip_fixed {
 sub decode_fixed {
     my $class = shift;
     my ($writer_schema, $reader_schema, $reader) = @_;
-    ## TODO: what if schemas don't match
     $reader->read(my $buf, $writer_schema->size);
     return $buf;
 }
