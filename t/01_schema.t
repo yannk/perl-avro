@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 121;
+plan tests => 123;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -280,7 +280,8 @@ EOJ
 EOJ
     my $schema = Avro::Schema->parse($s);
     is $schema->type, 'array', "array";
-    is $schema->items, 'string', "type of items is string";
+    isa_ok $schema->items, 'Avro::Schema::Primitive';
+    is $schema->items->type, 'string', "type of items is string";
     my $string = $schema->to_string;
     my $s2 = Avro::Schema->parse($string);
     is_deeply $s2, $schema, "reserialized identically";
@@ -293,7 +294,8 @@ EOJ
 EOJ
     my $schema = Avro::Schema->parse($s);
     is $schema->type, 'map', "map";
-    is $schema->values, 'string', "type of values is string";
+    isa_ok $schema->values, 'Avro::Schema::Primitive';
+    is $schema->values->type, 'string', "type of values is string";
     my $string = $schema->to_string;
     my $s2 = Avro::Schema->parse($string);
     is_deeply $s2, $schema, "reserialized identically";
@@ -352,7 +354,7 @@ EOJ
 { "type": "array", "items": "string" }
 { "type": "fixed", "size": 1, "name": "fixed" }
 { "type": "enum", "name": "enum", "symbols": [ "s" ] }
-{ "type": "map", "name": "map", "values": "long" }
+{ "type": "map", "values": "long" }
 { "type": "record", "name": "r", "fields": [ { "name": "a", "type": "long" }] }
 EOJ
     my %s;
@@ -389,7 +391,7 @@ EOJ
 { "type": "array", "items": "int" }
 { "type": "fixed", "size": 2, "name": "fixed" }
 { "type": "enum", "name": "enum2", "symbols": [ "b" ] }
-{ "type": "map", "name": "map", "values": "null" }
+{ "type": "map", "values": "null" }
 { "type": "record", "name": "r2", "fields": [ { "name": "b", "type": "long" }] }
 EOJ
     my %alt;

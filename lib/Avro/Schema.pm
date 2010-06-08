@@ -570,11 +570,7 @@ sub new {
     my $items = $struct->{items}
         or throw Avro::Schema::Error::Parse("Array must declare 'items'");
 
-    unless (defined $items && length $items) {
-        throw Avro::Schema::Error::Parse(
-            "Array.items should be a string"
-        );
-    }
+    $items = Avro::Schema->parse_struct($items, $param{names});
     $schema->{items} = $items;
     return $schema;
 }
@@ -597,7 +593,7 @@ sub to_struct {
 
     return {
         type => 'array',
-        items => $schema->{items},
+        items => $schema->{items}->to_struct($known_names),
     };
 }
 
@@ -616,11 +612,7 @@ sub new {
     unless (defined $values && length $values) {
         throw Avro::Schema::Error::Parse("Map must declare 'values'");
     }
-    if (ref $values) {
-        throw Avro::Schema::Error::Parse(
-            "Map.values should be a string"
-        );
-    }
+    $values = Avro::Schema->parse_struct($values, $param{names});
     $schema->{values} = $values;
 
     return $schema;
@@ -644,7 +636,7 @@ sub to_struct {
 
     return {
         type => 'map',
-        values => $schema->{values},
+        values => $schema->{values}->to_struct($known_names),
     };
 }
 
