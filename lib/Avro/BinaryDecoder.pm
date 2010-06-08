@@ -45,13 +45,12 @@ sub decode {
     my ($writer_schema, $reader_schema, $reader)
         = @param{qw/writer_schema reader_schema reader/};
 
-    ## a schema can also be just a string
-    my $wtype = ref $writer_schema ? $writer_schema->type : $writer_schema;
-    #my $rtype = ref $reader_schema ? $reader_schema->type : $reader_schema;
+    my $type = Avro::Schema->match(
+        writer => $writer_schema,
+        reader => $reader_schema,
+    ) or throw Avro::Schema::Error::Mismatch;
 
-    resolve_schema($writer_schema, $reader_schema);
-
-    my $meth = "decode_$wtype";
+    my $meth = "decode_$type";
     return $class->$meth($writer_schema, $reader_schema, $reader);
 }
 
@@ -61,9 +60,6 @@ sub skip {
     my $type = ref $schema ? $schema->type : $schema;
     my $meth = "skip_$type";
     return $class->$meth($schema, $reader);
-}
-
-sub resolve_schema {
 }
 
 sub decode_null { undef }
@@ -161,7 +157,7 @@ sub decode_record {
         }
         my $data = $class->decode(
             writer_schema => $w_field_schema,
-            reader_schema => $r_field_schema,
+            reader_schema => $r_field_schema->{type},
             reader        => $reader,
         );
         $record->{ $name } = $data;
@@ -172,7 +168,7 @@ sub decode_record {
         ## value, and writer's schema does not have a field with the same
         ## name, an error is signalled.
         unless (exists $extra_fields{$name}->{default}) {
-            throw Avro::Schema::Error::DataMismatch(
+            throw Avro::Schema::Error::Mismatch(
                 "cannot resolve without default"
             );
         }
@@ -194,7 +190,7 @@ sub decode_enum {
     my $w_data = $writer_schema->symbols->[$index];
     ## 1.3.2 if the writer's symbol is not present in the reader's enum,
     ## then an error is signalled.
-    throw Avro::Schema::Error::DataMismatch("enum unknown")
+    throw Avro::Schema::Error::Mismatch("enum unknown")
         unless $reader_schema->is_data_valid($w_data);
     return $w_data;
 }
@@ -234,6 +230,8 @@ sub decode_array {
     my ($writer_schema, $reader_schema, $reader) = @_;
     my $block_count = decode_long($class, @_);
     my @array;
+    my $writer_items = $writer_schema->items;
+    my $reader_items = $reader_schema->items;
     while ($block_count) {
         my $block_size;
         if ($block_count < 0) {
@@ -243,8 +241,8 @@ sub decode_array {
         }
         for (1..$block_count) {
             push @array, $class->decode(
-                writer_schema => $writer_schema->items,
-                reader_schema => $reader_schema->items,
+                writer_schema => $writer_items,
+                reader_schema => $reader_items,
                 reader        => $reader,
             );
         }
@@ -277,6 +275,8 @@ sub decode_map {
     my %hash;
 
     my $block_count = decode_long($class, @_);
+    my $writer_values = $writer_schema->values;
+    my $reader_values = $reader_schema->values;
     while ($block_count) {
         my $block_size;
         if ($block_count < 0) {
@@ -287,8 +287,8 @@ sub decode_map {
         for (1..$block_count) {
             my $key = decode_string($class, @_);
             $hash{$key} = $class->decode(
-                writer_schema => $writer_schema->values,
-                reader_schema => $reader_schema->values,
+                writer_schema => $writer_values,
+                reader_schema => $reader_values,
                 reader        => $reader,
             );
         }

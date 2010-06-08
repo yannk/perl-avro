@@ -9,6 +9,8 @@ requires 'Try::Tiny';
 requires 'parent';
 requires 'Regexp::Common';
 requires 'Encode';
+requires 'IO::String';
+requires 'Object::Tiny';
 unless ($Config{use64bitint}) {
     requires 'Math::BigInt';
 }

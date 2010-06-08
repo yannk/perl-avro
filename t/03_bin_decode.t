@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Avro::Schema;
 use Avro::BinaryEncoder;
-use Test::More tests => 17;
+use Test::More tests => 21;
 use Test::Exception;
 use IO::String;
 
@@ -103,7 +103,7 @@ EOP
             writer_schema => $w_enum,
             reader_schema => $r_enum,
             reader => IO::String->new($enc),
-        )} "Avro::Schema::Error::DataMismatch", "schema problem";
+        )} "Avro::Schema::Error::Mismatch", "schema problem";
     }
 }
 
@@ -147,7 +147,7 @@ EOJ
             reader_schema => $r_schema,
             reader => IO::String->new($enc),
         );
-    } "Avro::Schema::Error::DataMismatch", "no default value!";
+    } "Avro::Schema::Error::Mismatch", "no default value!";
 }
 
 ## union resolution
@@ -172,6 +172,63 @@ EOP
     );
 
     is_deeply $dec, $data, "decoded!";
+}
+
+## map resolution
+{
+    my $w_schema = Avro::Schema->parse(<<EOP);
+{ "type": "map", "values": { "type": "array", "items": "string" } }
+EOP
+    my $r_schema = Avro::Schema->parse(<<EOP);
+{ "type": "map", "values": { "type": "array", "items": "int" } }
+EOP
+    my $enc = '';
+    my $data = { "one" => [ "un", "one" ], two => [ "deux", "two" ] };
+
+    Avro::BinaryEncoder->encode(
+        schema  => $w_schema,
+        data    => $data,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    throws_ok {
+        Avro::BinaryDecoder->decode(
+            writer_schema => $w_schema,
+            reader_schema => $r_schema,
+            reader => IO::String->new($enc),
+        )
+    } "Avro::Schema::Error::Mismatch", "recursively... fails";
+
+    my $dec = Avro::BinaryDecoder->decode(
+        writer_schema => $w_schema,
+        reader_schema => $w_schema,
+        reader => IO::String->new($enc),
+    );
+    is_deeply $dec, $data, "decoded succeeded!";
+}
+
+## schema upgrade
+{
+    my $w_schema = Avro::Schema->parse(<<EOP);
+{ "type": "map", "values": { "type": "array", "items": "int" } }
+EOP
+    my $r_schema = Avro::Schema->parse(<<EOP);
+{ "type": "map", "values": { "type": "array", "items": "float" } }
+EOP
+    my $enc = '';
+    my $data = { "one" => [ 1, 2 ], two => [ 1, 30 ] };
+
+    Avro::BinaryEncoder->encode(
+        schema  => $w_schema,
+        data    => $data,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    my $dec = Avro::BinaryDecoder->decode(
+        writer_schema => $w_schema,
+        reader_schema => $w_schema,
+        reader => IO::String->new($enc),
+    );
+    is_deeply $dec, $data, "decoded succeeded! +upgrade";
+    is $dec->{one}[0], 1.0, "kind of dumb test";
 }
 
 done_testing;

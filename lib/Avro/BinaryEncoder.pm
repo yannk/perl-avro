@@ -194,7 +194,7 @@ sub encode_map {
 
             ## the value
             $class->encode(
-                schema => $schema->values->{$_},
+                schema => $schema->values,
                 data => $data->{$_},
                 emit_cb => $cb,
             );
