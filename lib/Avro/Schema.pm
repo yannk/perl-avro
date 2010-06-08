@@ -268,7 +268,7 @@ sub is_data_valid {
         $data =~ /^$RE{num}{real}$/ ? return 1 : 0;
     }
     if ($type eq "bytes" or $type eq "string") {
-        return 1 unless ref $data;
+        return 1 unless !defined $data or ref $data;
     }
     if ($type eq 'null') {
         return defined $data ? 0 : 1;
