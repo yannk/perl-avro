@@ -170,6 +170,7 @@ sub match {
 
 
 package Avro::Schema::Base;
+our @ISA = qw/Avro::Schema/;
 use Carp;
 
 sub new {
