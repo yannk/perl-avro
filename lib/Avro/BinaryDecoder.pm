@@ -286,6 +286,9 @@ sub decode_map {
         }
         for (1..$block_count) {
             my $key = decode_string($class, @_);
+            unless (defined $key && length $key) {
+                throw Avro::Schema::Error::Parse("key of map is invalid");
+            }
             $hash{$key} = $class->decode(
                 writer_schema => $writer_values,
                 reader_schema => $reader_values,
