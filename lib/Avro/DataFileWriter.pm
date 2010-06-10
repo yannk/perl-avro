@@ -18,6 +18,7 @@ use Avro::BinaryDecoder;
 use Avro::DataFile;
 use Avro::Schema;
 use Carp;
+use Error::Simple;
 
 sub new {
     my $class = shift;
@@ -35,6 +36,10 @@ sub new {
     croak "Please specify a writer schema" unless $datafile->{writer_schema};
     croak "writer_schema is invalid"
         unless eval { $datafile->{writer_schema}->isa("Avro::Schema") };
+
+        $DB::single=1;
+    throw Avro::DataFile::Error::InvalidCodec($datafile->{codec})
+        unless Avro::DataFile->is_codec_valid($datafile->{codec});
 
     return $datafile;
 }
@@ -164,5 +169,8 @@ sub DESTROY {
     $datafile->flush;
     return 1;
 }
+
+package Avro::DataFile::Error::InvalidCodec;
+use parent 'Error::Simple';
 
 1;

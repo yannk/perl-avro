@@ -59,6 +59,7 @@ sub header {
     unless (exists $datafile->{_header}) {
         $datafile->{_header} = $datafile->read_file_header;
     }
+
     return $datafile->{_header};
 }
 
@@ -75,6 +76,11 @@ sub read_file_header {
 
     $datafile->{sync_marker} = $data->{sync}
         or croak "sync marker appears invalid";
+
+    my $codec = $data->{meta}{'avro.codec'} || "";
+
+    throw Avro::DataFile::Error::UnsupportedCodec($codec)
+        unless Avro::DataFile->is_codec_valid($codec);
 
     return $data;
 }
@@ -230,5 +236,8 @@ sub eob {
     return 1 if $pos >= $datafile->{block_start} + $datafile->{block_size};
     return 0;
 }
+
+package Avro::DataFile::Error::UnsupportedCodec;
+use parent 'Error::Simple';
 
 1;

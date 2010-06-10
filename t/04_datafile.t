@@ -7,7 +7,8 @@ use Avro::BinaryEncoder;
 use Avro::BinaryDecoder;
 use File::Temp;
 use Test::Exception;
-use Test::More tests => 6;
+use Test::More tests => 8;
+use Avro::DataFile;
 
 use_ok 'Avro::DataFileReader';
 use_ok 'Avro::DataFileWriter';
@@ -58,5 +59,30 @@ is $read_file->metadata->{'some'}, 'metadata', 'custom meta';
 my @all = $read_file->all;
 is scalar @all, 1, "one object back";
 is_deeply $all[0], $data, "Our data is intact!";
+
+
+## codec tests
+{
+    throws_ok {
+        Avro::DataFileWriter->new(
+            fh            => File::Temp->new,
+            writer_schema => $schema,
+            codec         => 'unknown',
+        );
+    } "Avro::DataFile::Error::InvalidCodec", "invalid codec";
+
+    ## rewind
+    seek $tmpfh, 0, 0;
+    local $Avro::DataFile::ValidCodec{null} = 0;
+    $read_file = Avro::DataFileReader->new(
+        fh            => $tmpfh,
+        reader_schema => $schema,
+    );
+
+    throws_ok {
+        $read_file->all;
+    } "Avro::DataFile::Error::UnsupportedCodec", "I've removed 'null' :)";
+
+}
 
 done_testing;

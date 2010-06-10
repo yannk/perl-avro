@@ -16,4 +16,15 @@ our $HEADER_SCHEMA = Avro::Schema->parse(<<EOH);
 }
 EOH
 
+our %ValidCodec = (
+    null    => 1,
+    deflate => 1,
+);
+
+sub is_codec_valid {
+    my $datafile = shift;
+    my $codec = shift || '';
+    return $ValidCodec{$codec};
+}
+
 +1;
