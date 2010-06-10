@@ -240,7 +240,7 @@ sub encode_fixed {
         my $s2 = $schema->size;
         throw Avro::BinaryEncoder::Error("Fixed size doesn't match $s1!=$s2");
     }
-    $class->encode_bytes(undef, $data, $cb);
+    $cb->(\$data);
 }
 
 sub zigzag {
