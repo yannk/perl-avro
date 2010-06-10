@@ -57,12 +57,12 @@ sub metadata {
 sub header {
     my $datafile = shift;
     unless (exists $datafile->{_header}) {
-        $datafile->{_header} = $datafile->read_header;
+        $datafile->{_header} = $datafile->read_file_header;
     }
     return $datafile->{_header};
 }
 
-sub read_header {
+sub read_file_header {
     my $datafile = shift;
 
     my $data = Avro::BinaryDecoder->decode(
@@ -70,7 +70,7 @@ sub read_header {
         writer_schema => $Avro::DataFile::HEADER_SCHEMA,
         reader        => $datafile->{fh},
     );
-    croak "Magic doesn't match"
+    confess "Magic '$data->{magic}' doesn't match"
         unless $data->{magic} eq Avro::DataFile->AVRO_MAGIC;
 
     $datafile->{sync_marker} = $data->{sync}
@@ -145,6 +145,9 @@ sub skip {
 sub read_block_header {
     my $datafile = shift;
     my $fh = $datafile->{fh};
+
+    $datafile->header
+        unless $datafile->{_header};
 
     $datafile->{object_count} = Avro::BinaryDecoder->decode_long(
         undef, undef, $fh,
