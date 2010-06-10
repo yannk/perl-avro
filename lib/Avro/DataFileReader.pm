@@ -70,7 +70,7 @@ sub read_file_header {
         writer_schema => $Avro::DataFile::HEADER_SCHEMA,
         reader        => $datafile->{fh},
     );
-    confess "Magic '$data->{magic}' doesn't match"
+    croak "Magic '$data->{magic}' doesn't match"
         unless $data->{magic} eq Avro::DataFile->AVRO_MAGIC;
 
     $datafile->{sync_marker} = $data->{sync}
