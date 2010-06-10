@@ -362,10 +362,9 @@ sub unsigned_varint {
     my $shift = 0;
     do {
         $reader->read(my $buf, 1);
-        my $byte = ord($buf);
+        my $byte = ord $buf;
         my $value = $byte & 0x7F;
-        $int <<= $shift;
-        $int |= $value;
+        $int |= $value << $shift;
         $shift += 7;
         $more = $byte & 0x80;
     } until (! $more);

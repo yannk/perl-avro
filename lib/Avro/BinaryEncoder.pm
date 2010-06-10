@@ -253,12 +253,12 @@ sub zigzag {
 
 sub unsigned_varint {
     my @bytes;
-    while ($_[0] & $complement ) {          # mask with continuation bit
+    while ($_[0] & $complement) {           # mask with continuation bit
         push @bytes, ($_[0] & 0x7F) | 0x80; # out and set continuation bit
         $_[0] >>= 7;                        # next please
     }
     push @bytes, $_[0]; # last byte
-    return pack "W*", @bytes; ## TODO C
+    return pack "C*", @bytes;
 }
 
 package Avro::BinaryEncoder::Error;

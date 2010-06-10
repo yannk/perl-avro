@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use Avro::Schema;
 use Config;
-use Test::More tests => 22;
+use Test::More tests => 24;
 use Test::Exception;
 use Math::BigInt;
 
@@ -41,6 +41,8 @@ sub primitive_ok {
     primitive_ok int     =>       64, pack("C*", 0b1000_0000, 0b0000_0001);
     my $p =
     primitive_ok int     =>      -65, pack("C*", 0b1000_0001, 0b0000_0001);
+    primitive_ok int     =>       65, pack("C*", 0b1000_0010, 0b0000_0001);
+    primitive_ok int     =>       99, "\xc6\x01";
 
     ## BigInt values still work
     primitive_ok int     => Math::BigInt->new(-65), $p;
