@@ -1,0 +1,19 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+use Avro::DataFileReader;
+use Carp;
+use IO::File;
+use JSON::XS;
+
+my $j = JSON::XS->new->allow_nonref;
+
+my $fh = IO::File->new(shift || croak "specify a file");
+my $reader = Avro::DataFileReader->new(
+    fh => $fh,
+);
+for ($reader->all) {
+    print $j->encode($_);
+    print "\n";
+}
