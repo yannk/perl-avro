@@ -19,6 +19,7 @@ use Avro::DataFile;
 use Avro::Schema;
 use Carp;
 use Error::Simple;
+use IO::Compress::RawDeflate qw(rawdeflate $RawDeflateError);
 
 sub new {
     my $class = shift;
@@ -37,7 +38,6 @@ sub new {
     croak "writer_schema is invalid"
         unless eval { $datafile->{writer_schema}->isa("Avro::Schema") };
 
-        $DB::single=1;
     throw Avro::DataFile::Error::InvalidCodec($datafile->{codec})
         unless Avro::DataFile->is_codec_valid($datafile->{codec});
 
@@ -76,8 +76,17 @@ sub buffer_or_print {
     my $string_ref = shift;
 
     my $ser_objects = $datafile->{_serialized_objects};
-    push @$ser_objects, $string_ref;
-    $datafile->{_current_size} += bytes::length($$string_ref);
+
+    if ($datafile->codec eq 'deflate') {
+        rawdeflate $string_ref => \my $output
+            or croak "rawdeflate failed: $RawDeflateError";
+
+        push @$ser_objects, \$output;
+    }
+    else {
+        push @$ser_objects, $string_ref;
+    }
+    $datafile->{_current_size} += bytes::length(${ $ser_objects->[-1] });
     if ($datafile->{_current_size} > $datafile->{block_max_size}) {
         ## ok, time to flush!
         $datafile->_print_block;

@@ -2,13 +2,13 @@
 
 use strict;
 use warnings;
-use Avro::Schema;
+use Avro::DataFile;
 use Avro::BinaryEncoder;
 use Avro::BinaryDecoder;
+use Avro::Schema;
 use File::Temp;
 use Test::Exception;
-use Test::More tests => 8;
-use Avro::DataFile;
+use Test::More tests => 12;
 
 use_ok 'Avro::DataFileReader';
 use_ok 'Avro::DataFileWriter';
@@ -33,21 +33,12 @@ my $data = {
     c => [ "0" ],
 };
 
-=cut
-use JSON::XS;
-use IO::Compress::Deflate qw(deflate $DeflateError) ;
-    $z .= encode_json($data);
-my $output;
-my $status = deflate \$z => \$output
-          or die "deflate failed: $DeflateError\n";
-warn (length $output);
-=cut
-
 $write_file->print($data);
 $write_file->flush;
 
 ## rewind
 seek $tmpfh, 0, 0;
+my $uncompressed_size = -s $tmpfh;
 
 my $read_file = Avro::DataFileReader->new(
     fh            => $tmpfh,
@@ -83,6 +74,32 @@ is_deeply $all[0], $data, "Our data is intact!";
         $read_file->all;
     } "Avro::DataFile::Error::UnsupportedCodec", "I've removed 'null' :)";
 
+    ## deflate!
+    my $zfh = File::Temp->new(UNLINK => 0);
+    my $write_file = Avro::DataFileWriter->new(
+        fh            => $zfh,
+        writer_schema => $schema,
+        codec         => 'deflate',
+        metadata      => {
+            some => 'metadata',
+        },
+    );
+    $write_file->print($data);
+    $write_file->flush;
+
+    ## rewind
+    seek $zfh, 0, 0;
+
+    my $read_file = Avro::DataFileReader->new(
+        fh            => $zfh,
+        reader_schema => $schema,
+    );
+    is $read_file->metadata->{'avro.codec'}, 'deflate', 'avro.codec';
+    is $read_file->metadata->{'some'}, 'metadata', 'custom meta';
+
+    my @all = $read_file->all;
+    is scalar @all, 1, "one object back";
+    is_deeply $all[0], $data, "Our data is intact!";
 }
 
 done_testing;

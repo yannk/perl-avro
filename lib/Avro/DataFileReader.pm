@@ -19,6 +19,8 @@ use Avro::BinaryDecoder;
 use Avro::Schema;
 use Carp;
 use IO::String;
+use IO::Uncompress::RawInflate ;
+use Fcntl();
 
 sub new {
     my $class = shift;
@@ -91,8 +93,14 @@ sub all {
     my @objs;
     my @block_objs;
     do {
-        @block_objs = $datafile->read_to_block_end;
-        push @objs, @block_objs
+        if ($datafile->eof) {
+            @block_objs = ();
+        }
+        else {
+            $datafile->read_block_header if $datafile->eob;
+            @block_objs = $datafile->read_to_block_end;
+            push @objs, @block_objs;
+        }
 
     } until !@block_objs;
 
@@ -104,28 +112,42 @@ sub next {
     my $count    = shift;
 
     my @objs;
+
+    $datafile->read_block_header if $datafile->eob;
+    return ()                    if $datafile->eof;
+
     my $block_count = $datafile->{object_count};
+
     if ($block_count <= $count) {
         push @objs, $datafile->read_to_block_end;
         croak "Didn't read as many objects than expected"
             unless scalar @objs == $block_count;
 
-        $datafile->next($count - $block_count);
+        push @objs, $datafile->next($count - $block_count);
     }
     else {
-        ## could probably be optimized
-        my $fh            = $datafile->{fh};
-        my $writer_schema = $datafile->writer_schema;
-        my $reader_schema = $datafile->reader_schema;
-        while ($count--) {
-            push @objs, Avro::BinaryDecoder->decode(
-                $writer_schema,
-                $reader_schema,
-                $fh,
-            );
-            $datafile->{object_count}--;
-        }
+        push @objs, $datafile->read_within_block($count);
     }
+    return @objs;
+}
+
+sub read_within_block {
+    my $datafile = shift;
+    my $count    = shift;
+
+    my $reader        = $datafile->reader;
+    my $writer_schema = $datafile->writer_schema;
+    my $reader_schema = $datafile->reader_schema || $writer_schema;
+    my @objs;
+    while ($count-- > 0 && $datafile->{object_count} > 0) {
+        push @objs, Avro::BinaryDecoder->decode(
+            writer_schema => $writer_schema,
+            reader_schema => $reader_schema,
+            reader        => $reader,
+        );
+        $datafile->{object_count}--;
+    }
+    return @objs;
 }
 
 sub skip {
@@ -142,7 +164,7 @@ sub skip {
         my $writer_schema = $datafile->writer_schema;
         ## could probably be optimized
         while ($count--) {
-            Avro::BinaryDecoder->skip($writer_schema, $datafile->{fh});
+            Avro::BinaryDecoder->skip($writer_schema, $datafile->reader);
             $datafile->{object_count}--;
         }
     }
@@ -152,8 +174,7 @@ sub read_block_header {
     my $datafile = shift;
     my $fh = $datafile->{fh};
 
-    $datafile->header
-        unless $datafile->{_header};
+    $datafile->header unless $datafile->{_header};
 
     $datafile->{object_count} = Avro::BinaryDecoder->decode_long(
         undef, undef, $fh,
@@ -162,78 +183,91 @@ sub read_block_header {
         undef, undef, $fh,
     );
     $datafile->{block_start} = tell $fh;
-    return 1;
+
+    return unless $datafile->codec eq 'deflate';
+    ## we need to read the entire block into memory, to inflate it
+    my $nread = read $fh, my $block, $datafile->{block_size} + MARKER_SIZE
+        or croak "Error reading from file: $!";
+
+    ## remove the marker
+    my $marker = substr $block, -(MARKER_SIZE), MARKER_SIZE, '';
+    $datafile->{block_marker} = $marker;
+
+    ## this is our new reader
+    $datafile->{reader} = IO::Uncompress::RawInflate->new(\$block);
+
+    return;
 }
 
-sub remaining_size {
+sub verify_marker {
     my $datafile = shift;
 
-    return   $datafile->{block_size}
-           + $datafile->{block_start}
-           - tell $datafile->{fh};
+    my $marker = $datafile->{block_marker};
+    unless (defined $marker) {
+        ## we are in the fh case
+        read $datafile->{fh}, $marker, MARKER_SIZE;
+    }
+
+    unless (($marker || "") eq $datafile->sync_marker) {
+        croak "Oops synchronization issue (marker mismatch)";
+    }
+    return;
 }
 
 sub skip_to_block_end {
     my $datafile = shift;
 
-    return if $datafile->{fh}->eof;
+    if (my $reader = $datafile->{reader}) {
+        seek $reader, 0, Fcntl->SEEK_END;
+        return;
+    }
 
-    $datafile->read_block_header
-        if $datafile->eob;
+    my $remaining_size = $datafile->{block_size}
+                       + $datafile->{block_start}
+                       - tell $datafile->{fh};
 
-    seek $datafile->{fh}, $datafile->remaining_size + MARKER_SIZE, 0;
+    seek $datafile->{fh}, $remaining_size, 0;
+    $datafile->verify_marker; ## will do a read
     return 1;
 }
 
 sub read_to_block_end {
     my $datafile = shift;
 
-    my $fh = $datafile->{fh};
-    return () if $fh->eof;
-
-    $datafile->read_block_header
-        if $datafile->eob;
-
-    my $nread = read $fh, my $buffer, $datafile->remaining_size + MARKER_SIZE
-        or croak "Error reading from file: $!";
-
-    if ( $nread <  $datafile->remaining_size + MARKER_SIZE ) {
-        warn "read less than expected: $nread";
-    }
-
-    my $block_buffer = IO::String->new($buffer);
-
-    my $writer_schema = $datafile->writer_schema;
-    my $reader_schema = $datafile->reader_schema || $writer_schema;
-
-    my @objs;
-    while ($datafile->{object_count}--) {
-        push @objs, Avro::BinaryDecoder->decode(
-            writer_schema => $writer_schema,
-            reader_schema => $reader_schema,
-            reader        => $block_buffer,
-        );
-    }
-
-    ## some validation checks
-    my $tail;
-    $nread = $block_buffer->read($tail, MARKER_SIZE);
-    if (MARKER_SIZE != $nread ) {
-        croak "Oops synchronization issue (size=$nread)";
-    }
-    unless ($tail eq $datafile->sync_marker) {
-        croak "Oops synchronization issue (marker mismatch)";
-    }
-
+    my $reader = $datafile->reader;
+    my @objs = $datafile->read_within_block( $datafile->{object_count} );
+    $datafile->verify_marker;
     return @objs;
+}
+
+sub reader {
+    my $datafile = shift;
+    return $datafile->{reader} || $datafile->{fh};
 }
 
 ## end of block
 sub eob {
     my $datafile = shift;
-    my $pos = tell $datafile->{fh};
-    return 1 unless $datafile->{block_start};
-    return 1 if $pos >= $datafile->{block_start} + $datafile->{block_size};
+
+    return 1 if $datafile->eof;
+
+    if ($datafile->{reader}) {
+        return 1 if $datafile->{reader}->eof;
+    }
+    else {
+        my $pos = tell $datafile->{fh};
+        return 1 unless $datafile->{block_start};
+        return 1 if $pos >= $datafile->{block_start} + $datafile->{block_size};
+    }
+    return 0;
+}
+
+sub eof {
+    my $datafile = shift;
+    if ($datafile->{reader}) {
+        return 0 unless $datafile->{reader}->eof;
+    }
+    return 1 if $datafile->{fh}->eof;
     return 0;
 }
 
