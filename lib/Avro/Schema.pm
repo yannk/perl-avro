@@ -44,7 +44,9 @@ sub parse_struct {
         if ( Avro::Schema::Primitive->is_type_valid($type) ) {
             return Avro::Schema::Primitive->new(type => $type);
         }
-        if ($type eq 'record') {
+        ## XXX technically we shouldn't allow error type other than in
+        ## a Protocol definition
+        if ($type eq 'record' or $type eq 'error') {
             return Avro::Schema::Record->new(
                 struct => $struct,
                 names => $names,
@@ -416,52 +418,11 @@ sub new {
 
     my @fields;
     for my $field (@$fields) {
-        my $name = $field->{name};
-        throw Arvo::Schema::Error::Parse("Record.Field.name is required")
-            unless defined $name && length $name;
-
-        my $type = $field->{type};
-        throw Arvo::Schema::Error::Parse("Record.Field.name is required")
-            unless defined $type && length $type;
-
-        $type = Avro::Schema->parse_struct($type, $names, $namespace);
-        my $f = { name => $name, type => $type };
-        #TODO: find where to weaken precisely
-        #Scalar::Util::weaken($field->{type});
-
-        if (exists $field->{default}) {
-            my $is_valid = $type->is_data_valid($field->{default});
-            my $t = $type->type;
-            throw Avro::Schema::Error::Parse(
-                "default value doesn't validate $t: '$field->{default}'"
-            ) unless $is_valid;
-
-            ## small Perlish special case
-            if ($type eq 'boolean') {
-                $f->{default} = $field->{default} ? 1 : 0;
-            }
-            else {
-                $f->{default} = $field->{default};
-            }
-        }
-        if (my $order = $field->{order}) {
-            throw Avro::Schema::Error::Parse(
-                "Order '$order' is not valid'"
-            ) unless $ValidOrder{$order};
-            $f->{order} = $order;
-        }
-
+        my $f = Avro::Schema::Field->new($field, $names, $namespace);
         push @fields, $f;
     }
     $schema->{fields} = \@fields;
     return $schema;
-}
-
-sub field_to_struct {
-    my $field = shift;
-    my $known_names = shift || {};
-    my $type = $field->{type}->to_struct($known_names);
-    return { name => $field->{name}, type => $type };
 }
 
 sub to_struct {
@@ -473,10 +434,10 @@ sub to_struct {
         return $fullname;
     }
     return {
-        type => 'record',
+        type => $schema->{type},
         name => $fullname,
         fields => [
-            map { field_to_struct($_, $known_names) } @{ $schema->{fields} }
+            map { $_->to_struct($known_names) } @{ $schema->{fields} }
         ],
     };
 }
@@ -494,6 +455,56 @@ sub fields_as_hash {
         };
     }
     return $schema->{_fields_as_hash};
+}
+
+package Avro::Schema::Field;
+
+sub to_struct {
+    my $field = shift;
+    my $known_names = shift || {};
+    my $type = $field->{type}->to_struct($known_names);
+    return { name => $field->{name}, type => $type };
+}
+
+sub new {
+    my $class = shift;
+    my ($struct, $names, $namespace) = @_;
+
+    my $name = $struct->{name};
+    throw Arvo::Schema::Error::Parse("Record.Field.name is required")
+        unless defined $name && length $name;
+
+    my $type = $struct->{type};
+    throw Arvo::Schema::Error::Parse("Record.Field.name is required")
+        unless defined $type && length $type;
+
+    $type = Avro::Schema->parse_struct($type, $names, $namespace);
+    my $field = { name => $name, type => $type };
+    #TODO: find where to weaken precisely
+    #Scalar::Util::weaken($struct->{type});
+
+    if (exists $struct->{default}) {
+        my $is_valid = $type->is_data_valid($struct->{default});
+        my $t = $type->type;
+        throw Avro::Schema::Error::Parse(
+            "default value doesn't validate $t: '$struct->{default}'"
+        ) unless $is_valid;
+
+        ## small Perlish special case
+        if ($type eq 'boolean') {
+            $field->{default} = $struct->{default} ? 1 : 0;
+        }
+        else {
+            $field->{default} = $struct->{default};
+        }
+    }
+    if (my $order = $struct->{order}) {
+        throw Avro::Schema::Error::Parse(
+            "Order '$order' is not valid'"
+        ) unless $ValidOrder{$order};
+        $field->{order} = $order;
+    }
+    return bless $field, $class;
 }
 
 package Avro::Schema::Enum;
