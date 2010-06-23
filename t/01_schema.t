@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 123;
+plan tests => 126;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -402,6 +402,21 @@ EOJ
     }
 }
 
+## union in a record.field
+{
+    my $s = Avro::Schema::Record->new(
+        struct => {
+            name => 'saucisson',
+            fields => [
+                { name => 'a', type => [ 'long', 'null' ] },
+            ],
+        },
+    );
+    isa_ok $s, 'Avro::Schema::Record';
+    is $s->fields->[0]{name}, 'a', 'a';
+    isa_ok $s->fields->[0]{type}, 'Avro::Schema::Union';
+}
+
 sub match_ok {
     my ($w, $r, $msg) = @_;
     $msg ||= "match_ok";
@@ -413,4 +428,5 @@ sub match_nok {
     $msg ||= "non matching";
     ok !Avro::Schema->match(reader => $r, writer => $w), $msg;
 }
+
 done_testing;
