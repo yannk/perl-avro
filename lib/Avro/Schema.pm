@@ -457,6 +457,16 @@ sub fields_as_hash {
     return $schema->{_fields_as_hash};
 }
 
+sub is_data_valid {
+    my $schema = shift;
+    my $data = shift;
+    for my $field (@{ $schema->{fields} }) {
+        my $key = $field->{name};
+        return 0 unless $field->is_data_valid($data->{$key});
+    }
+    return 1;
+}
+
 package Avro::Schema::Field;
 
 sub to_struct {
@@ -505,6 +515,13 @@ sub new {
         $field->{order} = $order;
     }
     return bless $field, $class;
+}
+
+sub is_data_valid {
+    my $field = shift;
+    my $data = shift;
+    return 1 if $field->{type}->is_data_valid($data);
+    return 0;
 }
 
 package Avro::Schema::Enum;
