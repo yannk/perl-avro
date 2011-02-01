@@ -72,8 +72,8 @@ sub encode_boolean {
 sub encode_int {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
-    if (abs($data) > 0x7fffffff) {
-        throw Avro::BinaryEncoder::Error("int should be 32bits");
+    if ($data !~ /^-?\d+$/ || abs($data) > 0x7fffffff) {
+        throw Avro::BinaryEncoder::Error("int ($data) should be <= 32bits");
     }
 
     my $enc = unsigned_varint(zigzag($data));
@@ -83,8 +83,8 @@ sub encode_int {
 sub encode_long {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
-    if (abs($data) > $max64) {
-        throw Avro::BinaryEncoder::Error("int should be 64bits");
+    if ($data !~ /^-?\d+$/ || abs($data) > $max64) {
+        throw Avro::BinaryEncoder::Error("int ($data) should be <= 64bits");
     }
     my $enc = unsigned_varint(zigzag($data));
     $cb->(\$enc);

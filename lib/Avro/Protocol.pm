@@ -27,7 +27,7 @@ sub parse {
         $json->decode($enc_proto);
     }
     catch {
-        throw Avro::Proto::Error::Parse(
+        throw Avro::Protocol::Error::Parse(
             "Cannot parse json string: $_"
         );
     };
@@ -39,7 +39,7 @@ sub from_struct {
     my $struct = shift || {};
     my $name = $struct->{protocol};
     unless (defined $name or length $name) {
-        throw Avro::Proto::Error::Parse("protocol name is required");
+        throw Avro::Protocol::Error::Parse("protocol name is required");
     }
 
     my $types = $class->parse_types($struct->{types});
