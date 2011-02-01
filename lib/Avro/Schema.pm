@@ -716,7 +716,16 @@ sub schemas {
     return $schema->{schemas};
 }
 
-sub is_data_valid { 0 }
+sub is_data_valid {    
+    my $schema = shift;
+    my $data = shift;
+    for my $type ( @{ $schema->{schemas} } ) {
+        if ( $type->is_data_valid($data) ) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 sub to_struct {
     my $schema = shift;
