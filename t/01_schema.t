@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 123;
+plan tests => 127;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -338,6 +338,29 @@ EOJ
     my $string = $schema->to_string;
     my $s2 = Avro::Schema->parse($string);
     is_deeply $s2, $schema, "reserialized identically";
+}
+    
+# fixed type referenced using short name without namespace
+{
+    my $s = <<EOJ;
+{
+  "type": "record",
+  "name": "HandshakeRequest", "namespace":"org.apache.avro.ipc",
+  "fields": [
+    {"name": "clientHash",
+     "type": {"type": "fixed", "name": "MD5", "size": 16}},
+    {"name": "clientProtocol", "type": ["null", "string"]},
+    {"name": "serverHash", "type": "MD5"},
+    {"name": "meta", "type": ["null", {"type": "map", "values": "bytes"}]}
+  ]
+}
+EOJ
+    my $schema = Avro::Schema->parse($s);
+    
+    is $schema->type, 'record', 'HandshakeRequest type ok';
+    is $schema->namespace, 'org.apache.avro.ipc', 'HandshakeRequest namespace ok';
+    is $schema->fields->[0]->{type}->{name}, 'MD5', 'HandshakeRequest clientHash type ok';
+    is $schema->fields->[2]->{type}->{name}, 'MD5', 'HandshakeRequest serverHash type ok';
 }
 
 ## Schema resolution
