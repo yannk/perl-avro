@@ -69,7 +69,7 @@ sub decode_boolean {
     my $class = shift;
     my $reader = pop;
     $reader->read(my $bool, 1);
-    return $bool ? 1 : 0;
+    return unpack 'C', $bool;
 }
 
 sub skip_int { &decode_int }
