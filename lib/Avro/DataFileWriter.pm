@@ -33,6 +33,7 @@ sub new {
 
     $datafile->{_current_size}       = 0;
     $datafile->{_serialized_objects} = [];
+    $datafile->{_compressed_block}   = '';
 
     croak "Please specify a writer schema" unless $datafile->{writer_schema};
     croak "writer_schema is invalid"
@@ -76,17 +77,18 @@ sub buffer_or_print {
     my $string_ref = shift;
 
     my $ser_objects = $datafile->{_serialized_objects};
+    push @$ser_objects, $string_ref;
 
     if ($datafile->codec eq 'deflate') {
-        rawdeflate $string_ref => \my $output
+        my $uncompressed = join('', map { $$_ } @$ser_objects);
+        rawdeflate \$uncompressed => \$datafile->{_compressed_block}
             or croak "rawdeflate failed: $RawDeflateError";
-
-        push @$ser_objects, \$output;
+        $datafile->{_current_size} =
+            bytes::length($datafile->{_compressed_block});
     }
     else {
-        push @$ser_objects, $string_ref;
+      $datafile->{_current_size} += bytes::length($$string_ref);
     }
-    $datafile->{_current_size} += bytes::length(${ $ser_objects->[-1] });
     if ($datafile->{_current_size} > $datafile->{block_max_size}) {
         ## ok, time to flush!
         $datafile->_print_block;
@@ -153,11 +155,17 @@ sub _print_block {
     ## alternatively here, we could do n calls to print
     ## but we'll say that this all write block thing is here to overcome
     ## any memory issues we could have with deferencing the ser_objects
-    print $fh $prefix, (map { $$_ } @$ser_objects), $sync_marker;
+    if ($datafile->codec eq 'deflate') {
+        print $fh $prefix, $datafile->{_compressed_block}, $sync_marker;
+    }
+    else {
+        print $fh $prefix, (map { $$_ } @$ser_objects), $sync_marker;
+    }
 
     ## now reset our internal buffer
     $datafile->{_serialized_objects} = [];
     $datafile->{_current_size} = 0;
+    $datafile->{_compressed_block} = '';
     return 1;
 }
 

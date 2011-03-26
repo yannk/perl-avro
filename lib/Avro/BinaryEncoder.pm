@@ -6,11 +6,17 @@ use Config;
 use Encode();
 use Error::Simple;
 
+our $max64;
 our $complement = ~0x7F;
-unless ($Config{use64bitint}) {
+if ($Config{use64bitint}) {
+    $max64 = 9223372036854775807;
+}
+else {
     require Math::BigInt;
     $complement = Math::BigInt->new("0b" . ("1" x 57) . ("0" x 7));
+    $max64      = Math::BigInt->new("0b0" . ("1" x 63));
 }
+
 
 =head2 encode(%param)
 
@@ -66,9 +72,8 @@ sub encode_boolean {
 sub encode_int {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
-    my @count = unpack "W*", $data;
-    if (scalar @count > 4) {
-        throw Avro::BinaryEncoder::Error("int should be 32bits");
+    if ($data !~ /^-?\d+$/ || abs($data) > 0x7fffffff) {
+        throw Avro::BinaryEncoder::Error("int ($data) should be <= 32bits");
     }
 
     my $enc = unsigned_varint(zigzag($data));
@@ -78,9 +83,8 @@ sub encode_int {
 sub encode_long {
     my $class = shift;
     my ($schema, $data, $cb) = @_;
-    my @count = unpack "W*", $data;
-    if (scalar @count > 8) {
-        throw Avro::BinaryEncoder::Error("int should be 64bits");
+    if ($data !~ /^-?\d+$/ || abs($data) > $max64) {
+        throw Avro::BinaryEncoder::Error("int ($data) should be <= 64bits");
     }
     my $enc = unsigned_varint(zigzag($data));
     $cb->(\$enc);

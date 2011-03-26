@@ -1,12 +1,10 @@
 NAME
-    Avro -
+    Avro - Modern Data Serializer
 
 SYNOPSIS
       use Avro;
 
 DESCRIPTION
-    Avro is
-
 AUTHOR
     Yann Kerherve <yannk@cpank.org>
 
