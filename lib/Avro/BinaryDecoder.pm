@@ -98,7 +98,7 @@ sub decode_double {
     my $class = shift;
     my $reader = pop;
     $reader->read(my $buf, 8);
-    return pack "d<", $buf,
+    return unpack "d<", $buf,
 }
 
 sub skip_bytes {
