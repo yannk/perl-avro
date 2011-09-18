@@ -443,7 +443,7 @@ EOJ
 sub match_ok {
     my ($w, $r, $msg) = @_;
     $msg ||= "match_ok";
-    ok Avro::Schema->match(reader => $r, writer => $w), $msg;
+    ok(Avro::Schema->match(reader => $r, writer => $w), $msg);
 }
 
 sub match_nok {
