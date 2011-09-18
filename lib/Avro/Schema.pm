@@ -490,11 +490,11 @@ sub new {
     my ($struct, $names, $namespace) = @_;
 
     my $name = $struct->{name};
-    throw Arvo::Schema::Error::Parse("Record.Field.name is required")
+    throw Avro::Schema::Error::Parse("Record.Field.name is required")
         unless defined $name && length $name;
 
     my $type = $struct->{type};
-    throw Arvo::Schema::Error::Parse("Record.Field.name is required")
+    throw Avro::Schema::Error::Parse("Record.Field.name is required")
         unless defined $type && length $type;
 
     $type = Avro::Schema->parse_struct($type, $names, $namespace);
