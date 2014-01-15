@@ -5,11 +5,17 @@ SYNOPSIS
       use Avro;
 
 DESCRIPTION
-AUTHOR
+
+AUTHORS
     Yann Kerherve <yannk@cpank.org>
 
+CONTRIBUTORS
+    Andy Grundman <andy@hybridized.org>
+    David Bushong <dbushong@mashlogic.com>
+    Ilya Martynov <ilya@iponweb.net>
+
 COPYRIGHT
-    Copyright 2010- Yann Kerherve
+    Copyright 2010 - Yann Kerherve
 
 LICENSE
     This library is free software; you can redistribute it and/or modify it
