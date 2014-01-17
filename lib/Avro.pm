@@ -2,7 +2,7 @@ package Avro;
 
 use strict;
 use 5.008_001;
-our $VERSION = '0.01';
+our $VERSION = '1.00';
 
 1;
 __END__
@@ -21,7 +21,13 @@ Avro - Modern Data Serializer
 
 =head1 AUTHOR
 
-Yann Kerherve E<lt>yannk@cpank.orgE<gt>
+    Yann Kerherve E<lt>yannk@cpank.orgE<gt>
+
+=head1 CONTRIBUTORS
+
+    Andy Grundman <andy@hybridized.org>
+    David Bushong <dbushong@mashlogic.com>
+    Ilya Martynov <ilya@iponweb.net>
 
 =head1 COPYRIGHT
 
@@ -29,8 +35,7 @@ Copyright 2010- Yann Kerherve
 
 =head1 LICENSE
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+See LICENSE.txt
 
 =head1 SEE ALSO
 

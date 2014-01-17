@@ -5,20 +5,18 @@ SYNOPSIS
       use Avro;
 
 DESCRIPTION
-
-AUTHORS
-    Yann Kerherve <yannk@cpank.org>
+AUTHOR
+        Yann Kerherve E<lt>yannk@cpank.orgE<gt>
 
 CONTRIBUTORS
-    Andy Grundman <andy@hybridized.org>
-    David Bushong <dbushong@mashlogic.com>
-    Ilya Martynov <ilya@iponweb.net>
+        Andy Grundman <andy@hybridized.org>
+        David Bushong <dbushong@mashlogic.com>
+        Ilya Martynov <ilya@iponweb.net>
 
 COPYRIGHT
-    Copyright 2010 - Yann Kerherve
+    Copyright 2010- Yann Kerherve
 
 LICENSE
-    This library is free software; you can redistribute it and/or modify it
-    under the same terms as Perl itself.
+    See LICENSE.txt
 
 SEE ALSO
