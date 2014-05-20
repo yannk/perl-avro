@@ -257,6 +257,7 @@ sub is_data_valid {
     my $schema = shift;
     my $data = shift;
     my $type = $schema->{type};
+
     if ($type eq 'int') {
         no warnings;
         my $packed_int = pack "l", $data;
@@ -292,9 +293,7 @@ sub is_data_valid {
         return defined $data ? 0 : 1;
     }
     if ($type eq 'boolean') {
-        return 0 if ref $type; # sometimes risky
-        return 1 if $type =~ m{yes|no|y|n|t|f|true|false}i;
-        return 0;
+        return 1 if defined $data && ($data eq 0 || $data eq 1);
     }
     return 0;
 }

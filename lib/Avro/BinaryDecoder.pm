@@ -48,7 +48,7 @@ sub decode {
     my $type = Avro::Schema->match(
         writer => $writer_schema,
         reader => $reader_schema,
-    ) or throw Avro::Schema::Error::Mismatch;
+    ) or throw Avro::Schema::Error::Mismatch("schema mismatch");
 
     my $meth = "decode_$type";
     return $class->$meth($writer_schema, $reader_schema, $reader);

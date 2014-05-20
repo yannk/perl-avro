@@ -4,11 +4,15 @@ use strict;
 use warnings;
 use Avro::Schema;
 use Config;
-use Test::More tests => 24;
+use Test::More tests => 30;
 use Test::Exception;
 use Math::BigInt;
 
 use_ok 'Avro::BinaryEncoder';
+
+sub hexdump {
+    return unpack 'H*', shift;
+}
 
 sub primitive_ok {
     my ($primitive_type, $primitive_val, $expected_enc) = @_;
@@ -18,7 +22,11 @@ sub primitive_ok {
     Avro::BinaryEncoder->$meth(
         undef, $primitive_val, sub { $data = ${$_[0]} }
     );
-    is $data, $expected_enc, "primitive $primitive_type encoded correctly";
+    #is $data, $expected_enc, "primitive $primitive_type encoded correctly";
+    if (defined $expected_enc) {
+        is hexdump($data), hexdump($expected_enc),
+            "primitive $primitive_type encoded correctly";
+    }
     return $data;
 }
 
@@ -26,6 +34,12 @@ sub primitive_ok {
 {
     primitive_ok null    =>    undef, '';
     primitive_ok null    => 'whatev', '';
+
+    primitive_ok boolean => 0, "\x0";
+    primitive_ok boolean => 1, "\x1";
+    throws_ok {
+        primitive_ok boolean => 31415, undef;
+    } 'Avro::BinaryEncoder::Error', 'undef as boolean';
 
     ## - high-bit of each byte should be set except for last one
     ## - rest of bits are:
@@ -79,7 +93,7 @@ sub primitive_ok {
         data => "foo",
         emit_cb => sub { $enc .= ${ $_[0] } },
     );
-    is $enc, "\x06\x66\x6f\x6f", "Binary_Encodings.Primitive_Types";
+    is hexdump($enc), '06666f6f', "Binary_Encodings.Primitive_Types";
 
     $schema = Avro::Schema->parse(<<EOJ);
           {
@@ -97,7 +111,7 @@ EOJ
         data => { a => 27, b => 'foo' },
         emit_cb => sub { $enc .= ${ $_[0] } },
     );
-    is $enc, "\x36\x06\x66\x6f\x6f", "Binary_Encodings.Complex_Types.Records";
+    is hexdump($enc), '3606666f6f', 'Binary_Encodings.Complex_Types.Records';
 
     $enc = '';
     $schema = Avro::Schema->parse(q({"type": "array", "items": "long"}));
@@ -106,7 +120,7 @@ EOJ
         data => [3, 27],
         emit_cb => sub { $enc .= ${ $_[0] } },
     );
-    is $enc, "\x04\x06\x36\x00", "Binary_Encodings.Complex_Types.Arrays";
+    is hexdump($enc), '04063600', 'Binary_Encodings.Complex_Types.Arrays';  
 
     $enc = '';
     $schema = Avro::Schema->parse(q(["string","null"]));
@@ -115,7 +129,7 @@ EOJ
         data => undef,
         emit_cb => sub { $enc .= ${ $_[0] } },
     );
-    is $enc, "\x02", "Binary_Encodings.Complex_Types.Unions-null";
+    is hexdump($enc), '02', 'Binary_Encodings.Complex_Types.Unions-null';
 
     $enc = '';
     Avro::BinaryEncoder->encode(
@@ -123,7 +137,35 @@ EOJ
         data => "a",
         emit_cb => sub { $enc .= ${ $_[0] } },
     );
-    is $enc, "\x00\x02\x61", "Binary_Encodings.Complex_Types.Unions-a";
+    is hexdump($enc), '000261', 'Binary_Encodings.Complex_Types.Unions-a';
+}
+
+# boolean unions
+{
+    my $enc = '';
+    my $schema = Avro::Schema->parse(q(["boolean", "null"]));
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => undef,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    is hexdump($enc), '02', 'Binary_Encodings.Complex_Types.Unions-boolean-undef';
+
+    $enc = '';
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => 0,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    is hexdump($enc), '0000', 'Binary_Encodings.Complex_Types.Unions-boolean-false';
+
+    $enc = '';
+    Avro::BinaryEncoder->encode(
+        schema => $schema,
+        data => 1,
+        emit_cb => sub { $enc .= ${ $_[0] } },
+    );
+    is hexdump($enc), '0001', 'Binary_Encodings.Complex_Types.Unions-boolean-true';
 }
 
 done_testing;

@@ -2,7 +2,7 @@ use strict;
 use warnings;
 
 use Test::More;
-plan tests => 130;
+plan tests => 134;
 use Test::Exception;
 use_ok 'Avro::Schema';
 
@@ -24,6 +24,13 @@ my $s2 = Avro::Schema->parse(q({"type": "string"}));
 isa_ok $s2, 'Avro::Schema::Primitive';
 is $s2->type, "string", "type is string";
 is $s, $s2, "string Schematas are singletons";
+
+# boolean
+$s = Avro::Schema->parse(q("boolean"));
+is $s->is_data_valid(0), 1, q{0 is valid boolean};
+is $s->is_data_valid(1), 1, q{1 is valid boolean};
+is $s->is_data_valid('true'), 0, q{"true" isn't valid boolean};
+is $s->is_data_valid([]), 0, q{arrays aren't valid booleans};
 
 ## Records
 {
