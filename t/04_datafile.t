@@ -16,7 +16,7 @@ use_ok 'Avro::DataFileWriter';
 my $tmpfh = File::Temp->new(UNLINK => 1);
 
 my $schema = Avro::Schema->parse(<<EOP);
-{ "type": "map", "values": { "type": "array", "items": "string" } }
+{ "type": "map", "values": { "type": "array", "items": "string" }}
 EOP
 
 my $write_file = Avro::DataFileWriter->new(
