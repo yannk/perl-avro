@@ -5,6 +5,9 @@ SYNOPSIS
       use Avro;
 
 DESCRIPTION
+
+    Please see new home for this: https://github.com/apache/avro/tree/trunk/lang/perl
+    
 AUTHOR
         Yann Kerherve E<lt>yannk@cpank.orgE<gt>
 
